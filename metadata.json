@@ -1,0 +1,6 @@
+{
+  "name": "Plataforma de Trading Angolana",
+  "description": "Uma plataforma moderna de trading focada no mercado angolano, fornecendo dados em tempo real de criptomoedas convertidas para Kwanza (AOA), com limites regulados de depósito, saque e rendimento fixo de 80%.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

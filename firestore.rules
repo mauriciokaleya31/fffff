@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Users Collection rules
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Trades Collection rules
+    match /trades/{tradeId} {
+      allow read, write: if true;
+    }
+
+    // Transactions Collection rules
+    match /transactions/{transactionId} {
+      allow read, write: if true;
+    }
+
+    // Assets Collection rules
+    match /assets/{assetId} {
+      allow read, write: if true;
+    }
+
+    // Config Collection rules
+    match /config/{configType} {
+      allow read, write: if true;
+    }
+
+    // Connection test rule
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+  }
+}

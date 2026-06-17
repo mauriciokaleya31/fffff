@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "User account information, balances, profiles and states",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "balance": { "type": "number" },
+        "demoBalance": { "type": "number" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "isDemo": { "type": "boolean" },
+        "winProbability": { "type": "number", "enum": [10, 40, 60, 100] },
+        "isBlocked": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lossMultiplier": { "type": "number" },
+        "winMultiplier": { "type": "number" },
+        "isVerified": { "type": "boolean" },
+        "verificationStatus": { "type": "string", "enum": ["NOT_SUBMITTED", "PENDING", "APPROVED", "REJECTED"] }
+      },
+      "required": ["id", "name", "email", "balance", "demoBalance", "role", "isBlocked"]
+    },
+    "Trade": {
+      "title": "Trade",
+      "description": "Commercial trades and prediction contracts quick-options",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "assetId": { "type": "string" },
+        "assetSymbol": { "type": "string" },
+        "assetName": { "type": "string" },
+        "type": { "type": "string", "enum": ["BUY", "SELL"] },
+        "mode": { "type": "string", "enum": ["SPOT", "BINARY"] },
+        "quantity": { "type": "number" },
+        "openPrice": { "type": "number" },
+        "closePrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["OPEN", "CLOSED"] },
+        "openTime": { "type": "number" },
+        "closeTime": { "type": "number" },
+        "profit": { "type": "number" },
+        "prediction": { "type": "string", "enum": ["UP", "DOWN"] },
+        "duration": { "type": "number" }
+      },
+      "required": ["id", "userId", "assetId", "type", "mode", "quantity", "openPrice", "status", "openTime", "profit"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Bank deposits and withdrawals on the trading platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "type": { "type": "string", "enum": ["DEPOSIT", "WITHDRAW"] },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["AOA"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "date": { "type": "string", "format": "date-time" },
+        "paymentMethod": { "type": "string" },
+        "ibanOrPhone": { "type": "string" },
+        "proofNumber": { "type": "string" }
+      },
+      "required": ["id", "userId", "userEmail", "userName", "type", "amount", "status", "date", "paymentMethod", "ibanOrPhone"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "Trading assets such as cryptocurrencies and shares",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "symbol": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["shares", "currencies", "oil", "food", "others"] },
+        "price": { "type": "number" },
+        "previousPrice": { "type": "number" },
+        "changePercent": { "type": "number" },
+        "description": { "type": "string" },
+        "volume": { "type": "string" },
+        "high": { "type": "number" },
+        "low": { "type": "number" }
+      },
+      "required": ["id", "symbol", "name", "category", "price"]
+    },
+    "PlatformConfig": {
+      "title": "PlatformConfig",
+      "description": "Global operational parameter configurations for the platform",
+      "type": "object",
+      "properties": {
+        "marketStatus": { "type": "string", "enum": ["OPEN", "CLOSED"] },
+        "marketVolatilityMultiplier": { "type": "number" },
+        "allowsDemo": { "type": "boolean" },
+        "minimumDeposit": { "type": "number" },
+        "minimumWithdrawal": { "type": "number" },
+        "logoUrl": { "type": "string" },
+        "logoText": { "type": "string" },
+        "minTradeAmount": { "type": "number" },
+        "maxTradeAmount": { "type": "number" },
+        "winPayoutPercentage": { "type": "number" },
+        "onlineUsersTarget": { "type": "number" },
+        "brokerSpreadPercentage": { "type": "number" },
+        "globalWinProbability": { "type": "number" },
+        "apiKey": { "type": "string" },
+        "webhookUrl": { "type": "string" }
+      },
+      "required": ["marketStatus", "minTradeAmount", "maxTradeAmount", "winPayoutPercentage"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "UserAccount",
+      "description": "User documents mapping uid to user record properties"
+    },
+    "trades/{tradeId}": {
+      "schema": "Trade",
+      "description": "Active and completed contracts, spots, and rych-option trades"
+    },
+    "transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Financial records of client cash deposit values and payouts"
+    },
+    "assets/{assetId}": {
+      "schema": "Asset",
+      "description": "Financial listings, tokens, and active prices"
+    },
+    "config/platform": {
+      "schema": "PlatformConfig",
+      "description": "Global platform rules and settings document"
+    }
+  }
+}
