@@ -28,7 +28,11 @@ export default function EmailVerificationGate({ onVerified }: { onVerified: () =
     try {
       localStorage.setItem('bypass_verif_general', 'true');
       if (auth.currentUser) {
-        await auth.currentUser.reload();
+        try {
+          await auth.currentUser.reload();
+        } catch (reloadErr) {
+          console.warn("Soft reload ignore during manual verification button click:", reloadErr);
+        }
         localStorage.setItem('bypass_verif_' + auth.currentUser.uid, 'true');
       }
       setSuccessMsg('E-mail verificado com sucesso! Carregando terminal...');
@@ -70,10 +74,14 @@ export default function EmailVerificationGate({ onVerified }: { onVerified: () =
   useEffect(() => {
     const checkInterval = setInterval(async () => {
       if (auth.currentUser) {
-        await auth.currentUser.reload();
-        if (auth.currentUser.emailVerified) {
-          clearInterval(checkInterval);
-          onVerified();
+        try {
+          await auth.currentUser.reload();
+          if (auth.currentUser.emailVerified) {
+            clearInterval(checkInterval);
+            onVerified();
+          }
+        } catch (reloadErr) {
+          console.warn("Erro suave ignorado na recarga periódica:", reloadErr);
         }
       }
     }, 6000);

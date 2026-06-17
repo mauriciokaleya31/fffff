@@ -197,7 +197,11 @@ export default function Onboarding() {
         localStorage.setItem('bypass_verif_' + createdUser.id, 'true');
       }
       if (auth.currentUser) {
-        await auth.currentUser.reload();
+        try {
+          await auth.currentUser.reload();
+        } catch (reloadErr) {
+          console.warn("Erro suave ao atualizar perfil durante checagem de onboarding:", reloadErr);
+        }
         localStorage.setItem('bypass_verif_' + auth.currentUser.uid, 'true');
       }
       setSessionUser(createdUser);
