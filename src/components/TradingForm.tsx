@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTrading } from '../context/TradingContext';
 import { Asset } from '../types';
 import { Clock, ArrowUpRight, ArrowDownRight, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { formatKz, formatKzNum } from '../utils';
 
 interface TradingFormProps {
   asset: Asset | null;
@@ -49,11 +50,11 @@ export default function TradingForm({ asset }: TradingFormProps) {
       return;
     }
     if (investment < minAmt) {
-      triggerNotif('error', `O valor mínimo para negociar é de ${minAmt.toLocaleString('pt-AO')} Kz.`);
+      triggerNotif('error', `O valor mínimo para negociar é de ${formatKz(minAmt)}.`);
       return;
     }
     if (investment > maxAmt) {
-      triggerNotif('error', `O valor máximo permitido por operação é de ${maxAmt.toLocaleString('pt-AO')} Kz.`);
+      triggerNotif('error', `O valor máximo permitido por operação é de ${formatKz(maxAmt)}.`);
       return;
     }
     if (userBalance < investment) {
@@ -114,7 +115,7 @@ export default function TradingForm({ asset }: TradingFormProps) {
                 Valor do Investimento
               </label>
               <span className="text-[9px] text-slate-500 font-mono">
-                Limites: {minAmt.toLocaleString('pt-AO')} - {maxAmt.toLocaleString('pt-AO')} Kz
+                Limites: {formatKzNum(minAmt)} - {formatKz(maxAmt)}
               </span>
             </div>
             <div className="relative">
@@ -144,7 +145,7 @@ export default function TradingForm({ asset }: TradingFormProps) {
                   investment === val ? 'border-amber-500/50 text-amber-400' : 'border-slate-900 text-slate-500'
                 }`}
               >
-                {val.toLocaleString('pt-AO')}
+                {formatKzNum(val)}
               </button>
             ))}
           </div>
@@ -188,7 +189,7 @@ export default function TradingForm({ asset }: TradingFormProps) {
             </div>
             <div className="flex justify-between text-slate-400">
               <span>Possível Retorno (Se Vencer):</span>
-              <span className="text-emerald-500 font-bold">{(investment * (1 + payoutPct / 100)).toLocaleString('pt-AO')} Kz</span>
+              <span className="text-emerald-500 font-bold">{formatKz(investment * (1 + payoutPct / 100))}</span>
             </div>
           </div>
 

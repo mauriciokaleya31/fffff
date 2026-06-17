@@ -13,6 +13,7 @@ import {
   Settings, 
   SlidersHorizontal 
 } from 'lucide-react';
+import { formatKz } from '../utils';
 
 interface AssetChartProps {
   asset: Asset | null;
@@ -385,7 +386,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
           <span className="text-[9px] text-zinc-500 uppercase tracking-tight">Valor de Cotação</span>
           <div className="flex items-center gap-1 mt-0.5">
             <span className={`font-mono text-xs font-bold ${isLoss ? 'text-rose-500' : 'text-emerald-400'}`}>
-              {asset.price.toLocaleString('pt-AO')} AOA
+              {formatKz(asset.price)}
             </span>
             {isLoss ? (
               <TrendingDown size={11} className="text-rose-500 animate-pulse" />
@@ -402,11 +403,11 @@ export default function AssetChart({ asset }: AssetChartProps) {
         </div>
         <div className="flex flex-col items-center justify-center">
           <span className="text-[9px] text-zinc-500 uppercase">Pico Máximo (24H)</span>
-          <span className="font-mono text-[10px] text-zinc-300 mt-0.5">{asset.high.toLocaleString('pt-AO')} Kz</span>
+          <span className="font-mono text-[10px] text-zinc-300 mt-0.5">{formatKz(asset.high)}</span>
         </div>
         <div className="flex flex-col items-center justify-center">
           <span className="text-[9px] text-zinc-500 uppercase">Pico Mínimo (24H)</span>
-          <span className="font-mono text-[10px] text-zinc-300 mt-0.5">{asset.low.toLocaleString('pt-AO')} Kz</span>
+          <span className="font-mono text-[10px] text-zinc-300 mt-0.5">{formatKz(asset.low)}</span>
         </div>
       </div>
 
@@ -421,7 +422,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
               <span>{points[hoverIndex].time}</span>
             </div>
             <div className="text-[11px] font-extrabold text-zinc-100 mt-0.5">
-              Ref: <span className="text-emerald-400">{points[hoverIndex].price.toLocaleString('pt-AO')} AOA</span>
+              Ref: <span className="text-emerald-400">{formatKz(points[hoverIndex].price)}</span>
             </div>
           </div>
         ) : (

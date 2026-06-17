@@ -20,6 +20,7 @@ import {
   Tooltip,
   Legend
 } from 'recharts';
+import { formatKz, formatKzNum } from '../utils';
 
 export default function AdminPanel() {
   const {
@@ -42,8 +43,64 @@ export default function AdminPanel() {
     onlineUsersCount
   } = useTrading();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'market' | 'traffic' | 'compliance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'market' | 'traffic' | 'compliance' | 'system' | 'cms'>('overview');
   const [statsRange, setStatsRange] = useState<'week' | 'month' | 'all'>('week');
+  
+  // CMS state values
+  const [cmsForm, setCmsForm] = useState<any>({});
+  const [cmsSaveSuccess, setCmsSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (platformConfig) {
+      setCmsForm({
+        heroBadge: platformConfig.heroBadge || '',
+        heroTitle: platformConfig.heroTitle || '',
+        heroSubtitle: platformConfig.heroSubtitle || '',
+        heroCta1: platformConfig.heroCta1 || '',
+        heroCta2: platformConfig.heroCta2 || '',
+        stat1Title: platformConfig.stat1Title || '',
+        stat1Value: platformConfig.stat1Value || '',
+        stat2Title: platformConfig.stat2Title || '',
+        stat2Value: platformConfig.stat2Value || '',
+        stat3Title: platformConfig.stat3Title || '',
+        stat3Value: platformConfig.stat3Value || '',
+        stat4Title: platformConfig.stat4Title || '',
+        stat4Value: platformConfig.stat4Value || '',
+        simBadge: platformConfig.simBadge || '',
+        simTitle: platformConfig.simTitle || '',
+        simSubtitle: platformConfig.simSubtitle || '',
+        benefitsBadge: platformConfig.benefitsBadge || '',
+        benefitsTitle: platformConfig.benefitsTitle || '',
+        benefitsSubtitle: platformConfig.benefitsSubtitle || '',
+        benefit1Title: platformConfig.benefit1Title || '',
+        benefit1Desc: platformConfig.benefit1Desc || '',
+        benefit2Title: platformConfig.benefit2Title || '',
+        benefit2Desc: platformConfig.benefit2Desc || '',
+        benefit3Title: platformConfig.benefit3Title || '',
+        benefit3Desc: platformConfig.benefit3Desc || '',
+        banksSubtitle: platformConfig.banksSubtitle || '',
+        faqTitle: platformConfig.faqTitle || '',
+        faqSubtitle: platformConfig.faqSubtitle || '',
+        faq1Question: platformConfig.faq1Question || '',
+        faq1Answer: platformConfig.faq1Answer || '',
+        faq2Question: platformConfig.faq2Question || '',
+        faq2Answer: platformConfig.faq2Answer || '',
+        faq3Question: platformConfig.faq3Question || '',
+        faq3Answer: platformConfig.faq3Answer || '',
+        footerRiskWarning: platformConfig.footerRiskWarning || ''
+      });
+    }
+  }, [platformConfig]);
+
+  const handleSaveCMS = async () => {
+    try {
+      await adminConfigurePlatformSetting(cmsForm);
+      setCmsSaveSuccess(true);
+      setTimeout(() => setCmsSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Erro ao guardar CMS:", err);
+    }
+  };
   
   // Completed Transactions Filters
   const [txSearchQuery, setTxSearchQuery] = useState('');
@@ -320,103 +377,211 @@ export default function AdminPanel() {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/80">
       
-      {/* Admin header banner */}
-      <div className="bg-gradient-to-r from-red-600 to-amber-500 px-6 py-5 flex items-center justify-between text-slate-950">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="font-display font-extrabold text-lg uppercase tracking-wider">Painel de Controlo Administrativo</h2>
-            <span className="text-[10px] font-bold bg-slate-950 text-white px-2 py-0.5 rounded">BOSS MODE</span>
+      {/* Workspace Flex Container with Sidebar */}
+      <div className="flex flex-col md:flex-row min-h-[700px] select-none">
+        
+        {/* Left Sidebar Menu */}
+        <div className="w-full md:w-72 flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-800 bg-slate-950/80 p-5 flex flex-col gap-5 select-none">
+          
+          {/* Quick Platform Mini Stats */}
+          <div className="hidden md:block bg-slate-900/50 rounded-xl p-4 border border-slate-800/60">
+            <div className="flex items-center gap-2 mb-2.5">
+              <Activity size={14} className="text-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Painel Operacional</span>
+            </div>
+            <div className="flex justify-between items-end gap-2">
+              <div>
+                <span className="text-[9px] text-slate-500 font-semibold uppercase block">Online Agora</span>
+                <span className="text-xl font-display font-black text-emerald-400 leading-none">
+                  {onlineUsersCount ?? 3}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] text-slate-500 font-semibold uppercase block">Investidores</span>
+                <span className="text-md font-display font-bold text-slate-200 leading-none">
+                  {users.filter(u => u.role !== 'admin').length}
+                </span>
+              </div>
+            </div>
           </div>
-          <p className="text-xs font-semibold opacity-90 mt-0.5">Gestão total de probabilidades, saldos, ativos e depósitos CMC</p>
+
+          {/* Vertical Navigation Buttons */}
+          <div className="flex flex-col gap-1 overflow-y-auto max-h-[calc(100vh-280px)] pr-1 text-left">
+            
+            {/* Group 1: MONITORIZAÇÃO */}
+            <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-widest pl-2 mt-2 mb-1 block">
+              Monitorização
+            </span>
+
+            {/* button 1 */}
+            <button
+              id="admin-overview-tab"
+              onClick={() => setActiveTab('overview')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center gap-2.5 transition-all outline-none ${
+                activeTab === 'overview'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <BarChart3 size={15} className={activeTab === 'overview' ? 'text-slate-950' : 'text-slate-500'} />
+              <span>Painel Estatístico</span>
+            </button>
+
+            {/* button 5 */}
+            <button
+              id="admin-traffic-tab"
+              onClick={() => setActiveTab('traffic')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center gap-2.5 transition-all outline-none ${
+                activeTab === 'traffic'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <Activity size={15} className={activeTab === 'traffic' ? 'text-slate-950 animate-pulse' : 'text-emerald-400 animate-pulse'} />
+              <span>Tráfego & Simulador</span>
+            </button>
+
+            {/* Group 2: GESTÃO OPERACIONAL */}
+            <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-widest pl-2 mt-4 mb-1 block">
+              Gestão Operacional
+            </span>
+
+            {/* button 2 */}
+            <button
+              id="admin-users-tab"
+              onClick={() => setActiveTab('users')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center justify-between gap-2.5 transition-all outline-none ${
+                activeTab === 'users'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Users size={15} className={activeTab === 'users' ? 'text-slate-950' : 'text-slate-500'} />
+                <span>Utilizadores & Risco</span>
+              </div>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${activeTab === 'users' ? 'bg-slate-950 text-amber-400' : 'bg-slate-900 text-slate-400 border border-slate-800'}`}>
+                {users.length}
+              </span>
+            </button>
+
+            {/* button 3 */}
+            <button
+              id="admin-transactions-tab"
+              onClick={() => setActiveTab('transactions')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center justify-between gap-2.5 transition-all outline-none ${
+                activeTab === 'transactions'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Landmark size={15} className={activeTab === 'transactions' ? 'text-slate-950' : 'text-slate-500'} />
+                <span>Movimentos Bancários</span>
+              </div>
+              {pendingTx.length > 0 && (
+                <span className="px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded-full animate-bounce">
+                  {pendingTx.length}
+                </span>
+              )}
+            </button>
+
+            {/* button 6 */}
+            <button
+              id="admin-compliance-tab"
+              onClick={() => setActiveTab('compliance')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center justify-between gap-2.5 transition-all outline-none ${
+                activeTab === 'compliance'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Fingerprint size={15} className={activeTab === 'compliance' ? 'text-slate-950' : 'text-slate-500'} />
+                <span>Conformidade BI</span>
+              </div>
+              {users.filter(u => u.verificationStatus === 'PENDING').length > 0 && (
+                <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-extrabold rounded-full animate-pulse font-mono leading-none">
+                  {users.filter(u => u.verificationStatus === 'PENDING').length}
+                </span>
+              )}
+            </button>
+
+            {/* Group 3: PARAMETRIZAÇÃO & WEB CMS */}
+            <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-widest pl-2 mt-4 mb-1 block">
+              Configuração & Landing
+            </span>
+
+            {/* button 4 */}
+            <button
+              id="admin-market-tab"
+              onClick={() => setActiveTab('market')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center justify-between gap-2.5 transition-all outline-none ${
+                activeTab === 'market'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Settings size={15} className={activeTab === 'market' ? 'text-slate-950' : 'text-slate-500'} />
+                <span>Ativos & Payouts</span>
+              </div>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${activeTab === 'market' ? 'bg-slate-950 text-amber-400' : 'bg-slate-900 text-slate-400 border border-slate-800 font-mono'}`}>
+                {assets.length}
+              </span>
+            </button>
+
+            {/* New CMS Button */}
+            <button
+              id="admin-cms-tab"
+              onClick={() => setActiveTab('cms')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center gap-2.5 transition-all outline-none ${
+                activeTab === 'cms'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <FileText size={15} className={activeTab === 'cms' ? 'text-slate-950' : 'text-slate-500'} />
+              <span>Gestão Web (CMS)</span>
+            </button>
+
+            {/* button 7: Configurações do Sistema */}
+            <button
+              id="admin-system-tab"
+              onClick={() => setActiveTab('system')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center justify-between gap-2.5 transition-all outline-none ${
+                activeTab === 'system'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Sliders size={15} className={activeTab === 'system' ? 'text-slate-950' : 'text-slate-500'} />
+                <span>Ajustes do Sistema</span>
+              </div>
+              {platformConfig.maintenanceMode && (
+                <span className="px-1.5 py-0.5 bg-rose-600 text-white text-[9px] font-bold rounded-full animate-pulse font-mono block">
+                  MANUT.
+                </span>
+              )}
+            </button>
+
+          </div>
+
+          {/* Bottom Operator session box inside Sidebar */}
+          <div className="hidden md:block mt-auto p-4 bg-slate-900/40 rounded-xl border border-slate-800/40">
+            <span className="text-[9px] text-slate-500 font-bold uppercase block tracking-wider mb-1.5">Ligação Segura</span>
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping" />
+              <div className="text-[10px] text-slate-400 font-semibold uppercase">Admin Boss Mode</div>
+            </div>
+            <p className="text-[10px] text-slate-500/90 leading-relaxed">As alterações ao controlo de risco e aos saldos atualizam imediatamente o terminal do utilizador.</p>
+          </div>
+
         </div>
-        <Sliders size={26} className="text-slate-950 fill-slate-950/20" />
-      </div>
 
-      {/* Admin Inner Navigation */}
-      <div className="flex flex-wrap border-b border-slate-800 bg-slate-950 select-none">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex-1 min-w-[140px] py-4 text-xs font-semibold font-display border-b-2 flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'overview'
-              ? 'border-amber-500 text-white bg-slate-900/40'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <BarChart3 size={14} className={activeTab === 'overview' ? 'text-amber-400' : 'text-slate-500'} />
-          Painel & Estatísticas
-        </button>
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`flex-1 min-w-[140px] py-4 text-xs font-semibold font-display border-b-2 flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'users'
-              ? 'border-amber-500 text-white bg-slate-900/40'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Users size={14} />
-          Utilizadores & Risco ({users.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('transactions')}
-          className={`flex-1 min-w-[140px] py-4 text-xs font-semibold font-display border-b-2 flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'transactions'
-              ? 'border-amber-500 text-white bg-slate-900/40'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Landmark size={14} />
-          Movimentos Bancários
-          {pendingTx.length > 0 && (
-            <span className="px-1.5 py-0.2 bg-red-600 text-white text-[9px] font-bold rounded-full animate-bounce">
-              {pendingTx.length}
-            </span>
-          )}
-        </button>
-        <button
-          id="admin-market-tab"
-          onClick={() => setActiveTab('market')}
-          className={`flex-1 min-w-[140px] py-4 text-xs font-semibold font-display border-b-2 flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'market'
-              ? 'border-amber-500 text-white bg-slate-900/40'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Settings size={14} />
-          Ativos & Payouts ({assets.length})
-        </button>
-        <button
-          id="admin-traffic-tab"
-          onClick={() => setActiveTab('traffic')}
-          className={`flex-1 min-w-[140px] py-4 text-xs font-semibold font-display border-b-2 flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'traffic'
-              ? 'border-amber-500 text-amber-400 bg-slate-900/40'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Activity size={14} className="text-emerald-400 animate-pulse" />
-          Tráfego & Simulador
-        </button>
-        <button
-          id="admin-compliance-tab"
-          onClick={() => setActiveTab('compliance')}
-          className={`flex-1 min-w-[140px] py-4 text-xs font-semibold font-display border-b-2 flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'compliance'
-              ? 'border-amber-500 text-amber-400 bg-slate-900/40'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Fingerprint size={14} className={activeTab === 'compliance' ? 'text-amber-400' : 'text-slate-500'} />
-          Conformidade BI
-          {users.filter(u => u.verificationStatus === 'PENDING').length > 0 && (
-            <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 text-[9px] font-extrabold rounded-full animate-pulse">
-              {users.filter(u => u.verificationStatus === 'PENDING').length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Content wrapper */}
-      <div className="p-6">
+        {/* Dynamic content view container */}
+        <div className="flex-1 p-6 overflow-x-hidden md:p-8">
 
         {/* UPPER INTELLIGENCE METRICS DECK */}
         {activeTab === 'overview' && (
@@ -496,10 +661,10 @@ export default function AdminPanel() {
             </div>
             <div className="mt-3">
               <h4 className="text-lg font-mono font-extrabold text-cyan-400 tracking-tight truncate">
-                {users.filter(u => u.role !== 'admin').reduce((sum, u) => sum + u.balance, 0).toLocaleString('pt-AO')} Kz
+                {formatKz(users.filter(u => u.role !== 'admin').reduce((sum, u) => sum + u.balance, 0))}
               </h4>
               <p className="text-[9px] text-slate-500 mt-1 font-mono truncate">
-                Demo: {users.filter(u => u.role !== 'admin').reduce((sum, u) => sum + u.demoBalance, 0).toLocaleString('pt-AO')} Kz
+                Demo: {formatKz(users.filter(u => u.role !== 'admin').reduce((sum, u) => sum + u.demoBalance, 0))}
               </p>
             </div>
           </div>
@@ -523,10 +688,9 @@ export default function AdminPanel() {
             </div>
             <div className="mt-3">
               <h4 className="text-lg font-mono font-extrabold text-purple-400 tracking-tight truncate">
-                {trades
+                {formatKz(trades
                   .filter(t => t.status === 'CLOSED' && t.profit > 0)
-                  .reduce((sum, t) => sum + t.profit, 0)
-                  .toLocaleString('pt-AO')} Kz
+                  .reduce((sum, t) => sum + t.profit, 0))}
               </h4>
               <p className="text-[10px] text-slate-500 mt-1 font-medium">Soma de mais-valias líquidas</p>
             </div>
@@ -544,19 +708,19 @@ export default function AdminPanel() {
           >
             <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-rose-500 to-amber-500 opacity-80 animate-pulse" />
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-rose-450 uppercase tracking-widest">Lucro do Corretor (Adm)</span>
+              <span className="text-[10px] font-bold text-rose-455 uppercase tracking-widest">Lucro do Corretor (Adm)</span>
               <div className="w-7 h-7 bg-rose-500/10 rounded-lg flex items-center justify-center text-rose-500">
                 <Receipt size={14} />
               </div>
             </div>
             <div className="mt-3">
               <h4 className="text-lg font-mono font-extrabold text-rose-500 tracking-tight truncate">
-                {(
+                {formatKz(
                   trades
                     .filter(t => t.status === 'CLOSED' && t.profit < 0)
                     .reduce((sum, t) => sum + Math.abs(t.profit), 0) + 
                   trades.reduce((sum, t) => sum + (t.quantity || 0), 0) * ((platformConfig.brokerSpreadPercentage ?? 5) / 100)
-                ).toLocaleString('pt-AO')} Kz
+                )}
               </h4>
               <p className="text-[10px] text-slate-500 mt-1">
                 Perdas + {platformConfig.brokerSpreadPercentage ?? 5}% Spread Operacional
@@ -611,35 +775,35 @@ export default function AdminPanel() {
               return (
                 <>
                   {/* Performance Indicators Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
                     <div className="bg-slate-950 p-5 rounded-2xl border border-slate-850">
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest leading-none">Ganhos ADM ({statsRange === 'week' ? 'Semanais' : statsRange === 'month' ? 'Mensais' : 'Total'})</p>
                       <h4 className="text-2xl font-mono font-bold text-emerald-400 mt-2">
-                        {totalIndexGanhosAdm.toLocaleString('pt-AO')} Kz
+                        {formatKz(totalIndexGanhosAdm)}
                       </h4>
-                      <p className="text-[10px] text-slate-500 mt-1 border-t border-slate-900 pt-1.5">Apostas perdidas + 5% Spread</p>
+                      <p className="text-[10px] text-slate-500 mt-1 border-t border-slate-900 pt-1.5 font-sans">Apostas perdidas + 5% Spread</p>
                     </div>
 
                     <div className="bg-slate-950 p-5 rounded-2xl border border-slate-850">
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest leading-none">Perdas do ADM (Payouts)</p>
                       <h4 className="text-2xl font-mono font-bold text-rose-500 mt-2">
-                        {totalIndexPerdasAdm.toLocaleString('pt-AO')} Kz
+                        {formatKz(totalIndexPerdasAdm)}
                       </h4>
-                      <p className="text-[10px] text-slate-500 mt-1 border-t border-slate-900 pt-1.5">Saldos pagos a traders vencedores</p>
+                      <p className="text-[10px] text-slate-500 mt-1 border-t border-slate-900 pt-1.5 font-sans">Saldos pagos a traders vencedores</p>
                     </div>
 
                     <div className="bg-slate-950 p-5 rounded-2xl border border-slate-850">
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest leading-none">Lucro Líquido Real ADM</p>
                       <h4 className={`text-2xl font-mono font-bold mt-2 ${totalIndexNet >= 0 ? 'text-cyan-400' : 'text-red-500'}`}>
-                        {totalIndexNet.toLocaleString('pt-AO')} Kz
+                        {formatKz(totalIndexNet)}
                       </h4>
-                      <p className="text-[10px] text-slate-500 mt-1 border-t border-slate-900 pt-1.5">Margem líquida da corretora</p>
+                      <p className="text-[10px] text-slate-550 mt-1 border-t border-slate-900 pt-1.5 font-sans">Margem líquida da corretora</p>
                     </div>
 
                     <div className="bg-slate-950 p-5 rounded-2xl border border-slate-850">
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest leading-none font-sans">Ganhos Totais dos Clientes</p>
                       <h4 className="text-2xl font-mono font-bold text-amber-500 mt-2">
-                        {totalIndexClientes.toLocaleString('pt-AO')} Kz
+                        {formatKz(totalIndexClientes)}
                       </h4>
                       <p className="text-[10px] text-slate-500 mt-1 border-t border-slate-900 pt-1.5 font-sans">Volume de lucro dos utilizadores</p>
                     </div>
@@ -927,7 +1091,7 @@ export default function AdminPanel() {
                         <div>
                           <p className="text-[10px] text-emerald-400 font-medium font-mono uppercase">Saldo Real Live (AOA)</p>
                           <p className="font-mono text-xs font-bold text-slate-300 mt-1">
-                            {user.balance.toLocaleString('pt-AO')} Kz
+                            {formatKz(user.balance)}
                           </p>
                           <div className="flex gap-1 mt-2">
                             <input
@@ -951,7 +1115,7 @@ export default function AdminPanel() {
                         <div>
                           <p className="text-[10px] text-amber-400 font-medium font-mono uppercase">Saldo Demo (AOA)</p>
                           <p className="font-mono text-xs font-bold text-slate-300 mt-1">
-                            {user.demoBalance.toLocaleString('pt-AO')} Kz
+                            {formatKz(user.demoBalance)}
                           </p>
                           <div className="flex gap-1 mt-2">
                             <input
@@ -1066,7 +1230,7 @@ export default function AdminPanel() {
 
                         <div className="flex md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-3.5 border-t md:border-t-0 border-slate-900 pt-3 md:pt-0">
                           <span className={`font-mono text-base font-extrabold ${isDep ? 'text-emerald-500' : 'text-red-400'}`}>
-                            {tx.amount.toLocaleString('pt-AO')} Kwanzas
+                            {formatKz(tx.amount)}
                           </span>
                           
                           <div className="flex gap-2">
@@ -1193,7 +1357,7 @@ export default function AdminPanel() {
                             <p className="text-[9px] text-slate-500 mt-0.5">{tx.paymentMethod}</p>
                           </td>
                           <td className={`p-3.5 text-right font-bold text-sm ${tx.type === 'DEPOSIT' ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {tx.type === 'DEPOSIT' ? '+' : '-'}{tx.amount.toLocaleString('pt-AO')} Kz
+                            {tx.type === 'DEPOSIT' ? '+' : '-'}{formatKz(tx.amount)}
                           </td>
                           <td className="p-3.5 text-center font-sans">
                             <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold tracking-wide ${
@@ -1550,7 +1714,7 @@ export default function AdminPanel() {
 
                       <div className="w-1/4 text-center font-mono">
                         <p className="text-[10px] text-slate-500 uppercase">Preço Atual</p>
-                        <p className="text-xs font-bold text-slate-300 mt-1">{asset.price.toLocaleString('pt-AO')} Kz</p>
+                        <p className="text-xs font-bold text-slate-300 mt-1">{formatKz(asset.price)}</p>
                       </div>
 
                       {/* Manual price controls (Ajustar ganhos e perdas dos usuários; Controlar o mercado interno da plataforma) */}
@@ -1764,7 +1928,7 @@ export default function AdminPanel() {
                               <p className={`font-bold ${
                                 isWin || isDep ? 'text-emerald-400' : 'text-red-400'
                               }`}>
-                                {log.amount.toLocaleString('pt-AO')} Kz
+                                {formatKz(log.amount)}
                               </p>
                             )}
                             <p className="text-[9px] text-slate-500 mt-0.5">{log.time}</p>
@@ -1980,8 +2144,674 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* SUB-SECTION 7: CORE SYSTEM structural CONFIGURATIONS */}
+        {activeTab === 'system' && (
+          <div className="space-y-6 animate-fade-in text-left">
+            
+            {/* Header Area */}
+            <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+              <h3 className="font-display font-black text-lg text-white flex items-center gap-2 uppercase tracking-wide">
+                <Sliders className="text-amber-500" size={20} />
+                Configurações Estruturais do Sistema
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Gira a identidade visual, modo de segurança, comunidade oficial e as variáveis principais da plataforma de trading.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+              
+              {/* BRANDING PANEL */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-5">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  🎨 Identidade Visual & Nome do Sistema
+                </h4>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="sys-name" className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">
+                      Nome da Plataforma (Ex: KzOption, AngolaTrade)
+                    </label>
+                    <input
+                      id="sys-name"
+                      type="text"
+                      value={platformConfig.logoText || ''}
+                      onChange={(e) => adminConfigurePlatformSetting({ logoText: e.target.value })}
+                      placeholder="Indique o nome principal"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">Este nome é utilizado em mensagens de e-mail, termos contratuais e rodapés.</p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="sys-logo" className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">
+                      Link da Imagem do Logotipo (Opcional)
+                    </label>
+                    <input
+                      id="sys-logo"
+                      type="text"
+                      value={platformConfig.logoUrl || ''}
+                      onChange={(e) => adminConfigurePlatformSetting({ logoUrl: e.target.value })}
+                      placeholder="https://exemplo.com/imagens/logo.png"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">Insira uma URL direta para usar uma imagem personalizada em vez do logotipo de texto.</p>
+                  </div>
+
+                  {/* Built-in Style Presets */}
+                  <div className="pt-2">
+                    <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-2">Visualização Prévia do Logo</span>
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-center min-h-[60px]">
+                      {platformConfig.logoUrl ? (
+                        <img src={platformConfig.logoUrl} alt="Logo Preview" className="max-h-10 max-w-full object-contain" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 font-display font-black text-lg flex items-center justify-center shadow shadow-amber-500/20">
+                            {(platformConfig.logoText || "K").substring(0, 1).toUpperCase()}
+                          </div>
+                          <span className="font-display font-black text-md text-white">
+                            {platformConfig.logoText || "KzOption"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* MAINTENANCE & SECURITY PANEL */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-5">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  🔒 Modo de Manutenção & Estado
+                </h4>
+                
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800/80">
+                    <div className="space-y-1">
+                      <span className="text-xs font-semibold text-white block">Estado de Manutenção do Sistema</span>
+                      <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed">
+                        Ative isto para suspender temporariamente as operações de trading e mostrar uma página de manutenção para clientes normais.
+                      </p>
+                    </div>
+                    
+                    <button
+                      onClick={() => adminConfigurePlatformSetting({ maintenanceMode: !platformConfig.maintenanceMode })}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        platformConfig.maintenanceMode ? 'bg-rose-500' : 'bg-slate-800'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          platformConfig.maintenanceMode ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {platformConfig.maintenanceMode ? (
+                    <div className="bg-rose-950/20 border border-rose-900/30 rounded-xl p-4 text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-rose-400 font-bold uppercase tracking-wider text-[10px]">
+                        <Activity size={12} className="animate-pulse" /> Modo de Manutenção Ativado
+                      </div>
+                      <p className="text-slate-400 leading-relaxed text-[11px]">
+                        Neste momento, todos os investidores e convidados verão a tela de bloqueio oficial informando que o sistema está em manutenção estrutural.
+                      </p>
+                      <p className="text-amber-400 font-bold leading-relaxed text-[10px]">
+                        Atenção: A sua sessão de administrador continuará desbloqueada para que possa reverter esta opção a qualquer momento.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-4 text-xs space-y-1">
+                      <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[10px]">
+                        ✓ Sistema Operando Normalmente (Online)
+                      </div>
+                      <p className="text-slate-400 leading-relaxed text-[11px]">
+                        A plataforma está operável e todos os formulários de registo, logins, depósitos e ordens de trading estão online para Angola.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* COMMUNITY & LINKS PANEL */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-5">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  📢 Comunidade Oficial & Suporte Unitel
+                </h4>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="sys-comm" className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">
+                      Link Telegram / WhatsApp da Comunidade
+                    </label>
+                    <input
+                      id="sys-comm"
+                      type="text"
+                      value={platformConfig.communityLink || ''}
+                      onChange={(e) => adminConfigurePlatformSetting({ communityLink: e.target.value })}
+                      placeholder="https://t.me/comunidade_kzoption"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">Será exibido nas telas de manutenção e em abas de ajuda para unir os investidores.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* OPERATIONAL PARAMETERS SHORTCUTS PANEL */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-5">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  💰 Limites Operacionais & Margens Kz
+                </h4>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="lim-min-dep" className="text-[9px] text-slate-500 uppercase font-bold block mb-1.5">Depósito Mínimo (AOA)</label>
+                    <input
+                      id="lim-min-dep"
+                      type="number"
+                      value={platformConfig.minimumDeposit || 1000}
+                      onChange={(e) => adminConfigurePlatformSetting({ minimumDeposit: parseInt(e.target.value) || 1000 })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2 px-2.5 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="lim-min-withdraw" className="text-[9px] text-slate-500 uppercase font-bold block mb-1.5">Levantamento Mínimo (AOA)</label>
+                    <input
+                      id="lim-min-withdraw"
+                      type="number"
+                      value={platformConfig.minimumWithdrawal || 1000}
+                      onChange={(e) => adminConfigurePlatformSetting({ minimumWithdrawal: parseInt(e.target.value) || 1000 })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2 px-2.5 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="lim-min-trade" className="text-[9px] text-slate-500 uppercase font-bold block mb-1.5">Contrato Mínimo (AOA)</label>
+                    <input
+                      id="lim-min-trade"
+                      type="number"
+                      value={platformConfig.minTradeAmount || 1000}
+                      onChange={(e) => adminConfigurePlatformSetting({ minTradeAmount: parseInt(e.target.value) || 1000 })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2 px-2.5 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="lim-payout" className="text-[9px] text-slate-500 uppercase font-bold block mb-1.5">Payout % Binário</label>
+                    <input
+                      id="lim-payout"
+                      type="number"
+                      value={platformConfig.winPayoutPercentage || 80}
+                      onChange={(e) => adminConfigurePlatformSetting({ winPayoutPercentage: parseInt(e.target.value) || 80 })}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2 px-2.5 text-xs text-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* SUB-SECTION 8: Landing CMS Configuration */}
+        {activeTab === 'cms' && (
+          <div className="space-y-6 animate-fade-in text-left">
+            <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-display font-black text-lg text-white flex items-center gap-2 uppercase tracking-wide">
+                  <FileText className="text-amber-500" size={20} />
+                  Área CMS de Edição da Landing Page
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Personalize em tempo real todas as informações visuais, estatísticas, textos, perguntas frequentes e avisos do site principal da plataforma.
+                </p>
+              </div>
+              <button
+                onClick={handleSaveCMS}
+                className="bg-emerald-500 hover:bg-emerald-400 active:translate-y-0.5 text-slate-950 font-display font-extrabold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/10 flex items-center gap-2 cursor-pointer whitespace-nowrap"
+              >
+                {cmsSaveSuccess ? <CheckCircle2 size={14} className="text-slate-950" /> : <RefreshCw size={14} className="text-slate-950" />}
+                {cmsSaveSuccess ? 'Guardado com Sucesso!' : 'Guardar Alterações do Site'}
+              </button>
+            </div>
+
+            {cmsSaveSuccess && (
+              <div className="bg-emerald-950/30 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl text-xs flex items-center gap-2.5 animate-bounce">
+                <CheckCircle2 size={16} /> Corretamente sincronizado com o servidor. A página principal de todos os utilizadores já apresenta os novos conteúdos!
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12">
+              
+              {/* HERO SECTION DESIGN */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-4">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  🚀 Secção Principal (Hero & Call to Actions)
+                </h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Badge de Novidade (Topo)</label>
+                    <input
+                      type="text"
+                      value={cmsForm.heroBadge || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, heroBadge: e.target.value })}
+                      placeholder="Ex: NOVO SUCESSO EM ANGOLA"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Título de Impacto (Display)</label>
+                    <input
+                      type="text"
+                      value={cmsForm.heroTitle || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, heroTitle: e.target.value })}
+                      placeholder="Ex: A Maior Plataforma de Negociação de Angola"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Subtítulo Explicativo</label>
+                    <textarea
+                      rows={3}
+                      value={cmsForm.heroSubtitle || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, heroSubtitle: e.target.value })}
+                      placeholder="Ex: Negoceie opções binárias e spot com payouts elevados em Kwanzas angolanos de forma rápida e segura."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Texto CTA Prática</label>
+                      <input
+                        type="text"
+                        value={cmsForm.heroCta1 || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, heroCta1: e.target.value })}
+                        placeholder="Ex: Experimentar Conta Demo Grátis"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Texto CTA Registo</label>
+                      <input
+                        type="text"
+                        value={cmsForm.heroCta2 || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, heroCta2: e.target.value })}
+                        placeholder="Ex: Começar com Depósito Baixo"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* STATS COUNT GRID DESIGN */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-4">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  📊 Indicadores de Volume & Confiança
+                </h4>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Estatística 1 - Título</label>
+                      <input
+                        type="text"
+                        value={cmsForm.stat1Title || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, stat1Title: e.target.value })}
+                        placeholder="Ex: Volume Transacionado"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Estatística 1 - Valor</label>
+                      <input
+                        type="text"
+                        value={cmsForm.stat1Value || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, stat1Value: e.target.value })}
+                        placeholder="Ex: +50M Kz"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Estatística 2 - Título</label>
+                      <input
+                        type="text"
+                        value={cmsForm.stat2Title || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, stat2Title: e.target.value })}
+                        placeholder="Ex: Investidores Ativos"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Estatística 2 - Valor</label>
+                      <input
+                        type="text"
+                        value={cmsForm.stat2Value || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, stat2Value: e.target.value })}
+                        placeholder="Ex: +12,400"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Estatística 3 - Título</label>
+                      <input
+                        type="text"
+                        value={cmsForm.stat3Title || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, stat3Title: e.target.value })}
+                        placeholder="Ex: Tempo Médio de Levantamento"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Estatística 3 - Valor</label>
+                      <input
+                        type="text"
+                        value={cmsForm.stat3Value || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, stat3Value: e.target.value })}
+                        placeholder="Ex: 5 Minutos"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Estatística 4 - Título</label>
+                      <input
+                        type="text"
+                        value={cmsForm.stat4Title || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, stat4Title: e.target.value })}
+                        placeholder="Ex: Suporte Local Unitel/Movicel"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Estatística 4 - Valor</label>
+                      <input
+                        type="text"
+                        value={cmsForm.stat4Value || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, stat4Value: e.target.value })}
+                        placeholder="Ex: 24h / 7d"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SIMULATOR HEADER DESIGN */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-4">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  🎮 Área do Simulador em Tempo Real
+                </h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Badge de Chamada do Simulador</label>
+                    <input
+                      type="text"
+                      value={cmsForm.simBadge || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, simBadge: e.target.value })}
+                      placeholder="Ex: SIMULADOR DE PRÁTICA INTERATIVO"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Título do Simulador</label>
+                    <input
+                      type="text"
+                      value={cmsForm.simTitle || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, simTitle: e.target.value })}
+                      placeholder="Ex: Experimente Negocear Sem Qualquer Risco"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Subtítulo Informativo do Simulador</label>
+                    <textarea
+                      rows={2}
+                      value={cmsForm.simSubtitle || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, simSubtitle: e.target.value })}
+                      placeholder="Ex: Use o gráfico abaixo para testar as suas predições e entender o funcionamento imediato do mercado."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* BENEFITS DESIGN */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-4">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  ⭐ Pilares de Vantagem Competitiva
+                </h4>
+                
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Badge Lista</label>
+                      <input
+                        type="text"
+                        value={cmsForm.benefitsBadge || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, benefitsBadge: e.target.value })}
+                        placeholder="VANTAGENS PREMIUM"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Título Bloco</label>
+                      <input
+                        type="text"
+                        value={cmsForm.benefitsTitle || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, benefitsTitle: e.target.value })}
+                        placeholder="Porquê Escolher-nos"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Subtítulo Bloco Benefícios</label>
+                    <input
+                      type="text"
+                      value={cmsForm.benefitsSubtitle || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, benefitsSubtitle: e.target.value })}
+                      placeholder="A nossa infraestrutura foi desenhada especificamente para os traders de Angola."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white"
+                    />
+                  </div>
+
+                  <div className="bg-slate-900/40 p-3 rounded-xl space-y-2.5 border border-slate-900">
+                    <div>
+                      <span className="text-[9px] text-amber-500 font-extrabold uppercase">Benefício 1</span>
+                      <input
+                        type="text"
+                        value={cmsForm.benefit1Title || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, benefit1Title: e.target.value })}
+                        placeholder="Depósitos Rápidos & Integrados"
+                        className="w-full bg-slate-905 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white mb-1"
+                      />
+                      <input
+                        type="text"
+                        value={cmsForm.benefit1Desc || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, benefit1Desc: e.target.value })}
+                        placeholder="Deposite e levante via Multicaixa ou IBAN sem complicação."
+                        className="w-full bg-slate-905 border border-slate-800 rounded-lg py-1 px-2 text-[11px] text-slate-400"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="text-[9px] text-amber-500 font-extrabold uppercase">Benefício 2</span>
+                      <input
+                        type="text"
+                        value={cmsForm.benefit2Title || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, benefit2Title: e.target.value })}
+                        placeholder="Execução Instantânea em Milissegundos"
+                        className="w-full bg-slate-905 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white mb-1"
+                      />
+                      <input
+                        type="text"
+                        value={cmsForm.benefit2Desc || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, benefit2Desc: e.target.value })}
+                        placeholder="Sem atrasos ou slippage de ordens, garantindo preços fiéis."
+                        className="w-full bg-slate-905 border border-slate-800 rounded-lg py-1 px-2 text-[11px] text-slate-400"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="text-[9px] text-amber-500 font-extrabold uppercase">Benefício 3</span>
+                      <input
+                        type="text"
+                        value={cmsForm.benefit3Title || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, benefit3Title: e.target.value })}
+                        placeholder="Suporte Multicanal em Português"
+                        className="w-full bg-slate-905 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white mb-1"
+                      />
+                      <input
+                        type="text"
+                        value={cmsForm.benefit3Desc || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, benefit3Desc: e.target.value })}
+                        placeholder="Atendimento via WhatsApp, Telegram ou Telefone 24/7."
+                        className="w-full bg-slate-905 border border-slate-800 rounded-lg py-1 px-2 text-[11px] text-slate-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* BANKS & FOOTERS DESIGN */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-4 lg:col-span-2">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  🏢 Rodapé, Bancos & Avisos Legais de Risco
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Subtítulo de Parcerias Bancárias</label>
+                    <input
+                      type="text"
+                      value={cmsForm.banksSubtitle || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, banksSubtitle: e.target.value })}
+                      placeholder="Ex: Conectado com as maiores instituições reguladas em Angola para processar os seus levantamentos."
+                      className="w-full bg-slate-900 border border-slate-850 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Aviso Crítico de Risco (Legal)</label>
+                    <textarea
+                      rows={2}
+                      value={cmsForm.footerRiskWarning || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, footerRiskWarning: e.target.value })}
+                      placeholder="Ex: Opções Digitais envolvem risco financeiro substancial..."
+                      className="w-full bg-slate-900 border border-slate-850 rounded-xl py-2 px-3 text-xs text-white focus:outline-none resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* FAQ DESIGN */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-4 lg:col-span-2">
+                <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                  ❓ Perguntas Frequentes (FAQs) do Site
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold block mb-1.5">FAQ Central - Título Geral</label>
+                    <input
+                      type="text"
+                      value={cmsForm.faqTitle || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, faqTitle: e.target.value })}
+                      placeholder="Perguntas Frequentes"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white font-bold"
+                    />
+                    <label className="text-[9px] text-slate-500 block mt-2 mb-1">FAQ Central - Subtítulo Geral</label>
+                    <input
+                      type="text"
+                      value={cmsForm.faqSubtitle || ''}
+                      onChange={(e) => setCmsForm({ ...cmsForm, faqSubtitle: e.target.value })}
+                      placeholder="Resolva as suas dúvidas de imediato"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white"
+                    />
+                  </div>
+
+                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-900 space-y-4 md:col-span-2">
+                    <div>
+                      <span className="text-[10px] text-amber-500 font-extrabold uppercase">Pergunta 1</span>
+                      <input
+                        type="text"
+                        value={cmsForm.faq1Question || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, faq1Question: e.target.value })}
+                        placeholder="Como posso depositar a partir de Angola?"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white mb-1"
+                      />
+                      <textarea
+                        rows={2}
+                        value={cmsForm.faq1Answer || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, faq1Answer: e.target.value })}
+                        placeholder="Pode efetuar o pagamento via transferência no Multicaixa..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-[11px] text-slate-400 resize-none font-sans"
+                      />
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-900">
+                      <span className="text-[10px] text-amber-500 font-extrabold uppercase">Pergunta 2</span>
+                      <input
+                        type="text"
+                        value={cmsForm.faq2Question || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, faq2Question: e.target.value })}
+                        placeholder="Qual é o montante mínimo para trading?"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white mb-1"
+                      />
+                      <textarea
+                        rows={2}
+                        value={cmsForm.faq2Answer || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, faq2Answer: e.target.value })}
+                        placeholder="O valor mínimo de um contrato binário é de 1000 Kwanzas..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-[11px] text-slate-400 resize-none font-sans"
+                      />
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-900">
+                      <span className="text-[10px] text-amber-500 font-extrabold uppercase">Pergunta 3</span>
+                      <input
+                        type="text"
+                        value={cmsForm.faq3Question || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, faq3Question: e.target.value })}
+                        placeholder="É seguro enviar o BI para verificação?"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white mb-1"
+                      />
+                      <textarea
+                        rows={2}
+                        value={cmsForm.faq3Answer || ''}
+                        onChange={(e) => setCmsForm({ ...cmsForm, faq3Answer: e.target.value })}
+                        placeholder="Sim. Todos os seus dados de identidade biométrica são encriptados e armazenados com segurança..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-[11px] text-slate-400 resize-none font-sans"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
       </div>
 
     </div>
+
+  </div>
   );
 }

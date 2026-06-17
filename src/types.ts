@@ -110,4 +110,43 @@ export interface PlatformConfig {
   globalWinProbability?: number; // Global overrides for all users if set
   apiKey?: string;
   webhookUrl?: string;
+  maintenanceMode?: boolean;
+  communityLink?: string;
+  
+  // CMS Dynamic landing page fields
+  heroBadge?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  heroCta1?: string;
+  heroCta2?: string;
+  stat1Title?: string;
+  stat1Value?: string;
+  stat2Title?: string;
+  stat2Value?: string;
+  stat3Title?: string;
+  stat3Value?: string;
+  stat4Title?: string;
+  stat4Value?: string;
+  simBadge?: string;
+  simTitle?: string;
+  simSubtitle?: string;
+  benefitsBadge?: string;
+  benefitsTitle?: string;
+  benefitsSubtitle?: string;
+  benefit1Title?: string;
+  benefit1Desc?: string;
+  benefit2Title?: string;
+  benefit2Desc?: string;
+  benefit3Title?: string;
+  benefit3Desc?: string;
+  banksSubtitle?: string;
+  faqTitle?: string;
+  faqSubtitle?: string;
+  faq1Question?: string;
+  faq1Answer?: string;
+  faq2Question?: string;
+  faq2Answer?: string;
+  faq3Question?: string;
+  faq3Answer?: string;
+  footerRiskWarning?: string;
 }

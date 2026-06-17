@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTrading } from '../context/TradingContext';
 import { Landmark, ArrowUpRight, ArrowDownRight, Send, Receipt, CheckCircle, AlertTriangle } from 'lucide-react';
+import { formatKz } from '../utils';
 
 export default function KwanzaWallet() {
   const { 
@@ -31,18 +32,18 @@ export default function KwanzaWallet() {
   const handleDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (depAmount < 1000) {
-      setMessage({ type: 'error', text: 'O valor mínimo para depósitos é de 1.000 Kz.' });
+      setMessage({ type: 'error', text: 'O valor mínimo para depósitos é de 1.000,00 Kz.' });
       return;
     }
     if (depAmount > 50000) {
-      setMessage({ type: 'error', text: 'O valor máximo permitido por depósito é de 50.000 Kz.' });
+      setMessage({ type: 'error', text: 'O valor máximo permitido por depósito é de 50.000,00 Kz.' });
       return;
     }
     
     requestDeposit(depAmount, depIban, `${depMethod} (${targetBank})`);
     setMessage({ 
       type: 'success', 
-      text: `Pedido de depósito de ${depAmount.toLocaleString('pt-AO')} Kz enviado! Aguarde aprovação do Admin.` 
+      text: `Pedido de depósito de ${formatKz(depAmount)} enviado! Aguarde aprovação do Admin.` 
     });
     
     // reset form
@@ -53,7 +54,7 @@ export default function KwanzaWallet() {
   const handleWithdrawalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (withAmount < 1000) {
-      setMessage({ type: 'error', text: 'O valor mínimo para levantamentos é de 1.000 Kz.' });
+      setMessage({ type: 'error', text: 'O valor mínimo para levantamentos é de 1.000,00 Kz.' });
       return;
     }
 
@@ -66,7 +67,7 @@ export default function KwanzaWallet() {
     if (userWithdrawalSum + withAmount > 10000) {
       setMessage({ 
         type: 'error', 
-        text: `Limite diário máximo acumulado de 10.000 Kz excedido. Já retirou/solicitou ${userWithdrawalSum.toLocaleString('pt-AO')} Kz hoje.` 
+        text: `Limite diário máximo acumulado de 10.000,00 Kz excedido. Já retirou/solicitou ${formatKz(userWithdrawalSum)} hoje.` 
       });
       return;
     }
@@ -81,7 +82,7 @@ export default function KwanzaWallet() {
     if (success) {
       setMessage({ 
         type: 'success', 
-        text: `Pedido de levantamento de ${withAmount.toLocaleString('pt-AO')} Kz enviado com sucesso!` 
+        text: `Pedido de levantamento de ${formatKz(withAmount)} enviado com sucesso!` 
       });
       setWithAmount(5000);
     } else {
@@ -262,7 +263,7 @@ export default function KwanzaWallet() {
 
             <div>
               <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1.5">
-                Valor do Levantamento (Mínimo: 1.000 Kz / Limite Máximo Diário: 10.000 Kz)
+                Valor do Levantamento (Mínimo: 1.000,00 Kz / Limite Máximo Diário: 10.000,00 Kz)
               </label>
               <input
                 id="withdraw-amount"
@@ -353,7 +354,7 @@ export default function KwanzaWallet() {
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 border-slate-900 pt-2 sm:pt-0">
                         <span className={`font-mono text-xs font-bold ${isDep ? 'text-emerald-500' : 'text-red-400'}`}>
-                          {isDep ? '+' : '-'}{tx.amount.toLocaleString('pt-AO')} Kz
+                          {isDep ? '+' : '-'}{formatKz(tx.amount)}
                         </span>
                         {getStatusBadge(tx.status)}
                       </div>

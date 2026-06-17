@@ -1,6 +1,7 @@
 import { useTrading } from '../context/TradingContext';
 import { Trade } from '../types';
 import { RefreshCw, Play, CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { formatKz } from '../utils';
 
 export default function ActivityTable() {
   const { trades, closeSpotTrade, currentUser } = useTrading();
@@ -77,9 +78,9 @@ export default function ActivityTable() {
                           </span>
                         )}
                       </td>
-                      <td className="p-3 text-slate-300 font-bold">{trade.openPrice.toLocaleString('pt-AO')} Kz</td>
+                      <td className="p-3 text-slate-300 font-bold">{formatKz(trade.openPrice)}</td>
                       <td className="p-3 text-slate-300 font-semibold">
-                        {isSpot ? `${trade.quantity} un.` : `${trade.quantity.toLocaleString('pt-AO')} Kz`}
+                        {isSpot ? `${trade.quantity} un.` : `${formatKz(trade.quantity)}`}
                       </td>
                       <td className="p-3">
                         {isSpot ? (
@@ -93,7 +94,7 @@ export default function ActivityTable() {
                         )}
                       </td>
                       <td className={`p-3 text-right font-bold text-sm ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {isProfit ? '+' : ''}{trade.profit.toLocaleString('pt-AO')} AOA
+                        {isProfit ? '+' : ''}{formatKz(trade.profit)}
                       </td>
                       <td className="p-3 text-center">
                         {isSpot ? (
@@ -172,15 +173,15 @@ export default function ActivityTable() {
                           </span>
                         )}
                       </td>
-                      <td className="p-3">{trade.openPrice.toLocaleString('pt-AO')} Kz</td>
+                      <td className="p-3">{formatKz(trade.openPrice)}</td>
                       <td className="p-3 font-semibold text-slate-300">
-                        {trade.closePrice?.toLocaleString('pt-AO')} Kz
+                        {trade.closePrice ? formatKz(trade.closePrice) : 'S/D'}
                       </td>
                       <td className="p-3 text-slate-500 text-[11px]">
                         {isSpot ? 'CFD Permanente' : `${trade.duration}s Expirado`}
                       </td>
                       <td className={`p-3 text-right font-bold text-sm ${won ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {won ? '+' : ''}{trade.profit.toLocaleString('pt-AO')} AOA
+                        {won ? '+' : ''}{formatKz(trade.profit)}
                       </td>
                     </tr>
                   );

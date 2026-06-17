@@ -1,6 +1,7 @@
 import { useTrading } from '../context/TradingContext';
 import { Shield, User, Wallet, LogOut, Code, Globe2, ArrowRightLeft } from 'lucide-react';
 import { useState } from 'react';
+import { formatKz } from '../utils';
 
 export default function Navbar() {
   const { 
@@ -147,7 +148,7 @@ export default function Navbar() {
                 {currentUser.isDemo ? 'Saldo Demo' : 'Saldo Real'}
               </p>
               <p className={`font-mono font-bold text-sm ${currentUser.isDemo ? 'text-amber-400' : 'text-emerald-500'}`}>
-                {currentBalance.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
+                {formatKz(currentBalance)}
               </p>
             </div>
           </div>

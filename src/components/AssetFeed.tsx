@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTrading } from '../context/TradingContext';
 import { Asset, AssetCategory } from '../types';
 import { Search, Flame, Coins, Droplet, Wheat, Globe, Landmark } from 'lucide-react';
+import { formatKzNum } from '../utils';
 
 export default function AssetFeed() {
   const { assets, activeAsset, setActiveAssetId } = useTrading();
@@ -156,7 +157,7 @@ export default function AssetFeed() {
                 {/* Right side: Prices & Percent change */}
                 <div className="text-right w-1/3">
                   <p className="text-xs font-mono font-bold text-white">
-                    {asset.price.toLocaleString('pt-AO')}
+                    {formatKzNum(asset.price)}
                   </p>
                   <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-md font-mono font-semibold mt-1 ${
                     isNegative 
