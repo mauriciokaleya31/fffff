@@ -149,4 +149,13 @@ export interface PlatformConfig {
   faq3Question?: string;
   faq3Answer?: string;
   footerRiskWarning?: string;
+
+  // API Config parameters for Binance and Currency settings
+  apiUsdToAoa?: number; // e.g. 920
+  apiPriceDataSource?: 'BINANCE' | 'SIMULATOR'; // Data source mode
+  apiBinanceIntervalMs?: number; // Update interval in ms
+  apiLastUpdateStatus?: 'ONLINE' | 'OFFLINE' | 'SIMULATED';
+  apiLastUpdateMessage?: string; // Descriptive connection logs/proofs
+  apiLastFetchTime?: string; // Date/Time of last fetch
+  apiCustomJustification?: string; // Custom excuse/justification for outages or system audit logs
 }

@@ -6,7 +6,8 @@ import {
   Trash2, Plus, Volume, CheckCircle2, XCircle, AlertTriangle,
   ShieldCheck, FileText, Fingerprint, Eye, EyeOff, Search, Filter,
   ArrowUpRight, ArrowDownLeft, Clock, Percent, Activity, Sparkles,
-  RefreshCw, Smartphone, MapPin, Receipt, ShieldAlert, BookOpen, BarChart3, TrendingUp
+  RefreshCw, Smartphone, MapPin, Receipt, ShieldAlert, BookOpen, BarChart3, TrendingUp,
+  Cpu
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -43,12 +44,34 @@ export default function AdminPanel() {
     onlineUsersCount
   } = useTrading();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'market' | 'traffic' | 'compliance' | 'system' | 'cms'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'market' | 'traffic' | 'compliance' | 'system' | 'cms' | 'api'>('overview');
   const [statsRange, setStatsRange] = useState<'week' | 'month' | 'all'>('week');
   
   // CMS state values
   const [cmsForm, setCmsForm] = useState<any>({});
   const [cmsSaveSuccess, setCmsSaveSuccess] = useState(false);
+
+  // API configuration forms
+  const [apiForm, setApiForm] = useState<any>({
+    apiUsdToAoa: 920,
+    apiPriceDataSource: 'BINANCE',
+    apiBinanceIntervalMs: 8500,
+    apiCustomJustification: ''
+  });
+  const [apiSaveSuccess, setApiSaveSuccess] = useState(false);
+
+  // Real-time connection diagnostic tester state
+  const [connectionTest, setConnectionTest] = useState<{
+    status: 'IDLE' | 'TESTING' | 'SUCCESS' | 'FAILED';
+    latency: number | null;
+    message: string | null;
+    sample: string | null;
+  }>({
+    status: 'IDLE',
+    latency: null,
+    message: null,
+    sample: null
+  });
 
   useEffect(() => {
     if (platformConfig) {
@@ -89,6 +112,12 @@ export default function AdminPanel() {
         faq3Answer: platformConfig.faq3Answer || '',
         footerRiskWarning: platformConfig.footerRiskWarning || ''
       });
+      setApiForm({
+        apiUsdToAoa: platformConfig.apiUsdToAoa ?? 920,
+        apiPriceDataSource: platformConfig.apiPriceDataSource ?? 'BINANCE',
+        apiBinanceIntervalMs: platformConfig.apiPriceDataSource === 'SIMULATOR' ? 8500 : (platformConfig.apiBinanceIntervalMs ?? 8500),
+        apiCustomJustification: platformConfig.apiCustomJustification ?? 'Sistema operando normalmente. Conexão direta com a rede Binance e cotação em tempo real.'
+      });
     }
   }, [platformConfig]);
 
@@ -99,6 +128,53 @@ export default function AdminPanel() {
       setTimeout(() => setCmsSaveSuccess(false), 3000);
     } catch (err) {
       console.error("Erro ao guardar CMS:", err);
+    }
+  };
+
+  const handleSaveAPI = async () => {
+    try {
+      await adminConfigurePlatformSetting({
+        apiUsdToAoa: Number(apiForm.apiUsdToAoa ?? 920),
+        apiPriceDataSource: apiForm.apiPriceDataSource ?? 'BINANCE',
+        apiBinanceIntervalMs: Number(apiForm.apiBinanceIntervalMs ?? 8500),
+        apiCustomJustification: apiForm.apiCustomJustification ?? ''
+      });
+      setApiSaveSuccess(true);
+      setTimeout(() => setApiSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Erro ao guardar API Config:", err);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setConnectionTest({
+      status: 'TESTING',
+      latency: null,
+      message: 'Iniciando teste de handshake e latência com os servidores mundiais da Binance...',
+      sample: null
+    });
+    const startTime = Date.now();
+    try {
+      const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+      const latency = Date.now() - startTime;
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} [${res.statusText}]`);
+      }
+      const data = await res.json() as any;
+      setConnectionTest({
+        status: 'SUCCESS',
+        latency,
+        message: 'Conectividade e handshake concluídos com latência reduzida no servidor de Angola.',
+        sample: JSON.stringify(data, null, 2)
+      });
+    } catch (err: any) {
+      const latency = Date.now() - startTime;
+      setConnectionTest({
+        status: 'FAILED',
+        latency,
+        message: `Falha na solicitação HTTP: ${err?.message || 'Servidor inalcançável ou limite de taxa excedido.'}`,
+        sample: null
+      });
     }
   };
   
@@ -543,6 +619,29 @@ export default function AdminPanel() {
             >
               <FileText size={15} className={activeTab === 'cms' ? 'text-slate-950' : 'text-slate-500'} />
               <span>Gestão Web (CMS)</span>
+            </button>
+
+            {/* API Config Button */}
+            <button
+              id="admin-api-tab"
+              onClick={() => setActiveTab('api')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center justify-between gap-2.5 transition-all outline-none ${
+                activeTab === 'api'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Cpu size={15} className={activeTab === 'api' ? 'text-slate-950 animate-pulse' : 'text-slate-500'} />
+                <span>API CONFIG</span>
+              </div>
+              <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide ${
+                (platformConfig.apiPriceDataSource ?? 'BINANCE') === 'BINANCE'
+                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-900/50'
+                  : 'bg-amber-950/80 text-amber-400 border border-amber-900/50'
+              }`}>
+                {platformConfig.apiPriceDataSource ?? 'BINANCE'}
+              </span>
             </button>
 
             {/* button 7: Configurações do Sistema */}
@@ -2804,6 +2903,273 @@ export default function AdminPanel() {
                 </div>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* SUB-SECTION 9: API CONFIG & EXCHANGE RATE PARITY */}
+        {activeTab === 'api' && (
+          <div className="space-y-6 animate-fade-in text-left pb-16">
+            <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-display font-black text-lg text-white flex items-center gap-2 uppercase tracking-wide">
+                  <Cpu className="text-amber-500" size={20} />
+                  API CONFIG — Gestão Cambial & Conectividade
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Verifique e controle todas as fontes de cotações de preços (Binance API vs. Simulador) e paridade cambial do Kwanza (AOA/USD).
+                </p>
+              </div>
+              <button
+                onClick={handleSaveAPI}
+                className="bg-emerald-500 hover:bg-emerald-400 active:translate-y-0.5 text-slate-950 font-display font-extrabold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/10 flex items-center gap-2 cursor-pointer whitespace-nowrap"
+              >
+                {apiSaveSuccess ? <CheckCircle2 size={14} className="text-slate-950" /> : <RefreshCw size={14} className="text-slate-950" />}
+                {apiSaveSuccess ? 'Configurações Guardadas!' : 'Guardar Alterações da API'}
+              </button>
+            </div>
+
+            {apiSaveSuccess && (
+              <div className="bg-emerald-950/30 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl text-xs flex items-center gap-2.5 animate-bounce">
+                <CheckCircle2 size={16} /> Parâmetros cambiais e fontes de dados atualizados com sucesso no Firestore em tempo real!
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Main settings box */}
+              <div className="lg:col-span-2 space-y-6">
+                
+                {/* CONFIG CARD 1: SOURCE & INTERFACE */}
+                <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-5">
+                  <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                    🔌 Parametrização Cambial & Modos de Alimentação
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Source Selection */}
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1.5">Fonte de Alimentação de Preços</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setApiForm({ ...apiForm, apiPriceDataSource: 'BINANCE' })}
+                          className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                            apiForm.apiPriceDataSource === 'BINANCE'
+                              ? 'bg-emerald-950/40 border-emerald-500 text-emerald-400'
+                              : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <span className="font-extrabold text-[10px]">BINANCE API</span>
+                          <span className="text-[9px] text-slate-500 font-normal">Preços em Tempo Real</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setApiForm({ ...apiForm, apiPriceDataSource: 'SIMULATOR' })}
+                          className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                            apiForm.apiPriceDataSource === 'SIMULATOR'
+                              ? 'bg-amber-950/40 border-amber-500 text-amber-400'
+                              : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <span className="font-extrabold text-[10px]">SIMULADOR</span>
+                          <span className="text-[9px] text-slate-500 font-normal">Modo Local Autónomo</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                        Selecione "BINANCE API" para operar líquido no mercado mundial ou "SIMULADOR" para contingência no caso de falhas de rede.
+                      </p>
+                    </div>
+
+                    {/* USD-AOA Exchange Rate Input */}
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1.5">Taxa de Paridade Cambial (AOA / USD)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={apiForm.apiUsdToAoa || 920}
+                          onChange={(e) => setApiForm({ ...apiForm, apiUsdToAoa: Number(e.target.value) })}
+                          placeholder="920"
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-3 pr-12 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold"
+                        />
+                        <span className="absolute right-3 top-2.5 text-[10px] text-slate-500 font-mono">AOA / $</span>
+                      </div>
+                      <div className="bg-slate-900/30 border border-slate-800/50 p-2.5 rounded-lg mt-2 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-500">Exemplo prático:</span>
+                        <span className="text-[10px] text-slate-300 font-semibold font-mono">
+                          1 BTC ($65,000) = {formatKz(65000 * (apiForm.apiUsdToAoa ?? 920))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                    {/* Interval Slider / Select */}
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1.5">Frequência de Atualização dos Preços (Binance)</label>
+                      <select
+                        value={apiForm.apiBinanceIntervalMs || 8500}
+                        onChange={(e) => setApiForm({ ...apiForm, apiBinanceIntervalMs: Number(e.target.value) })}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                      >
+                        <option value={4000}>4.0 Segundos (Ultra-Rápido)</option>
+                        <option value={8500}>8.5 Segundos (Frequência Padrão)</option>
+                        <option value={15000}>15.0 Segundos (Banda Moderada)</option>
+                        <option value={30000}>30.0 Segundos (Económico)</option>
+                      </select>
+                      <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                        Frequências ultra-rápidas aumentam a dinâmica, mas requerem excelente estabilidade de rede nos clientes finais.
+                      </p>
+                    </div>
+
+                    {/* Maintenance / Emergency Alert info */}
+                    <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800/50 flex items-start gap-3">
+                      <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-300 font-extrabold uppercase tracking-wide block">Instrução de Segurança</span>
+                        <p className="text-[10px] text-slate-500 leading-relaxed">
+                          Em caso de manutenções ou instabilidade cambial nacional, altere a fonte para "SIMULADOR" para estabilizar o preço dos pares de moedas localmente e impedir furos no saldo.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CONFIG CARD 2: DISCLAIMER JUSTIFICATION SECTION */}
+                <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-4">
+                  <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                    ✍️ Justificação Oficial do Sistema (Para canais de suporte / auditoria)
+                  </h4>
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1.5">Mensagem / Disclaimer Administrativo da Paridade Cambial</label>
+                    <textarea
+                      rows={4}
+                      value={apiForm.apiCustomJustification || ''}
+                      onChange={(e) => setApiForm({ ...apiForm, apiCustomJustification: e.target.value })}
+                      placeholder="Declaração para evitar conversas e provar conformidade jurídica do sistema..."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500 font-sans leading-relaxed text-slate-300"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+                      Esta declaração formal de justificativa é armazenada de forma segura na nuvem e serve como prova de transparência e auditoria de cotações para evitar disputas ("evitar brincar com conversa").
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Sidebar connection state monitor and diagnostics */}
+              <div className="space-y-6">
+                
+                {/* CONNECTIONS STATUS CARD */}
+                <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-5">
+                  <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                    📡 Monitorização e Status Real-Time
+                  </h4>
+
+                  <div className="space-y-4">
+                    {/* Glowing status display */}
+                    <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800/60 flex items-center gap-3">
+                      <div className="relative">
+                        <span className={`flex h-3 w-3 rounded-full ${
+                          (platformConfig?.apiLastUpdateStatus ?? 'ONLINE') === 'ONLINE'
+                            ? 'bg-emerald-500'
+                            : (platformConfig?.apiLastUpdateStatus ?? 'ONLINE') === 'SIMULATED'
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500'
+                        }`} />
+                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                          (platformConfig?.apiLastUpdateStatus ?? 'ONLINE') === 'ONLINE'
+                            ? 'bg-emerald-500'
+                            : (platformConfig?.apiLastUpdateStatus ?? 'ONLINE') === 'SIMULATED'
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500'
+                        }`} />
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 uppercase font-bold block leading-none">Estado Atual da Conexão</span>
+                        <span className={`text-xs font-black uppercase font-display select-none ${
+                          (platformConfig?.apiLastUpdateStatus ?? 'ONLINE') === 'ONLINE'
+                            ? 'text-emerald-400'
+                            : (platformConfig?.apiLastUpdateStatus ?? 'ONLINE') === 'SIMULATED'
+                            ? 'text-amber-400'
+                            : 'text-rose-400'
+                        }`}>
+                          {platformConfig?.apiLastUpdateStatus ?? 'ONLINE'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Diagnostic information logs */}
+                    <div className="space-y-2.5 text-xs text-slate-300 text-left">
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-0.5">Última leitura de preços bem sucedida</span>
+                        <span className="font-mono text-[10px] text-slate-200">{platformConfig?.apiLastFetchTime || 'N/A'}</span>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-900">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold block mb-0.5">Mensagem de Diagnóstico</span>
+                        <p className="text-[10px] text-slate-400 italic bg-slate-900/40 p-2 rounded-lg border border-slate-800/50 leading-relaxed font-sans">
+                          "{platformConfig?.apiLastUpdateMessage || 'Nenhuma mensagem de log registada.'}"
+                        </p>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* CONNECTION RUNTIME DIAGNOSTIC HARDWARE TESTER */}
+                <div className="bg-slate-950 rounded-2xl p-6 border border-slate-800/80 space-y-4">
+                  <h4 className="font-display font-bold text-xs text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-900 pb-2">
+                    🛠️ Verificador de Conectividade em Angola
+                  </h4>
+
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    Execute um teste físico de ping e handshake a partir deste terminal para verificar as latências directas da rede e filtrar furos locais.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={connectionTest.status === 'TESTING'}
+                    className="w-full bg-slate-900 hover:bg-slate-850 text-white font-semibold font-display text-[11px] py-2.5 px-4 rounded-xl transition-all border border-slate-800 hover:border-amber-500/50 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Activity size={14} className={connectionTest.status === 'TESTING' ? 'text-amber-500 animate-spin' : 'text-slate-400'} />
+                    {connectionTest.status === 'TESTING' ? 'A medir latência...' : 'Ping à rede Binance'}
+                  </button>
+
+                  {connectionTest.status !== 'IDLE' && (
+                    <div className="space-y-2.5 border-t border-slate-900 pt-3 text-[10px] font-mono text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500">Status do Ensaio:</span>
+                        <span className={`font-bold ${
+                          connectionTest.status === 'SUCCESS' ? 'text-emerald-400' : connectionTest.status === 'FAILED' ? 'text-rose-400' : 'text-amber-400'
+                        }`}>
+                          {connectionTest.status}
+                        </span>
+                      </div>
+
+                      {connectionTest.latency !== null && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Tempo de Resposta:</span>
+                          <span className="text-white font-bold">{connectionTest.latency} ms</span>
+                        </div>
+                      )}
+
+                      <div className="text-[10px] text-slate-400 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[140px]">
+                        <div className="text-slate-500 font-sans font-bold uppercase text-[8px] tracking-wider mb-1">Terminal de Diagnóstico</div>
+                        <p className="font-sans mb-1 text-slate-300">{connectionTest.message}</p>
+                        {connectionTest.sample && (
+                          <pre className="text-[9px] text-emerald-400 bg-black/40 p-1.5 rounded border border-slate-800 mt-1 max-h-[100px] overflow-y-auto">
+                            {connectionTest.sample}
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+              
             </div>
           </div>
         )}

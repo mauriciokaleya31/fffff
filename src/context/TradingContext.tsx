@@ -214,6 +214,13 @@ const DEFAULT_CONFIG: PlatformConfig = {
   onlineUsersTarget: 50,
   brokerSpreadPercentage: 5,
   globalWinProbability: 0,
+  apiUsdToAoa: 920,
+  apiPriceDataSource: 'BINANCE',
+  apiBinanceIntervalMs: 8500,
+  apiLastUpdateStatus: 'ONLINE',
+  apiLastUpdateMessage: 'Inicializado com sucesso',
+  apiLastFetchTime: '',
+  apiCustomJustification: 'Sistema operando normalmente. Conexão direta com a rede Binance e cotação em tempo real.'
 };
 
 export function TradingProvider({ children }: { children: React.ReactNode }) {
@@ -449,9 +456,26 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     const fetchApiPrices = async () => {
       if (platformConfigRef.current.marketStatus !== 'OPEN') return;
 
+      const config = platformConfigRef.current;
+      const source = config.apiPriceDataSource ?? 'BINANCE';
+      const USD_TO_AOA = config.apiUsdToAoa ?? 920;
+
+      if (source === 'SIMULATOR') {
+        const nowStr = new Date().toLocaleString('pt-AO');
+        const lastFetchMs = config.apiLastFetchTime ? new Date(config.apiLastFetchTime).getTime() : 0;
+        if (config.apiLastUpdateStatus !== 'SIMULATED' || isNaN(lastFetchMs) || (Date.now() - lastFetchMs > 60000)) {
+          updateDoc(doc(db, 'config', 'platform'), {
+            apiLastUpdateStatus: 'SIMULATED',
+            apiLastUpdateMessage: 'O simulador orgânico está ativo por decisão administrativa (Cotações locais).',
+            apiLastFetchTime: nowStr
+          }).catch(e => console.warn("Could not save status to Firestore:", e));
+        }
+        return;
+      }
+
       try {
         const res = await fetch('https://api.binance.com/api/v3/ticker/price');
-        if (!res.ok) throw new Error('Cripto API request failed');
+        if (!res.ok) throw new Error(`Binance HTTP Error: ${res.status} ${res.statusText}`);
         const data = await res.json() as { symbol: string; price: string }[];
         
         const tickerMap: { [key: string]: string } = {
@@ -464,8 +488,6 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
           'dogecoin': 'DOGEUSDT',
           'shiba-inu': 'SHIBUSDT'
         };
-
-        const USD_TO_AOA = 920;
 
         // Perform local and firestore updating safely
         setAssets(prevAssets => {
@@ -519,15 +541,38 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
             return updatedAsset;
           });
         });
+
+        // Throttle updates to database config to minimize read/write bandwidth
+        const nowStr = new Date().toLocaleString('pt-AO');
+        const lastFetchMs = config.apiLastFetchTime ? new Date(config.apiLastFetchTime).getTime() : 0;
+        if (config.apiLastUpdateStatus !== 'ONLINE' || isNaN(lastFetchMs) || (Date.now() - lastFetchMs > 60000)) {
+          updateDoc(doc(db, 'config', 'platform'), {
+            apiLastUpdateStatus: 'ONLINE',
+            apiLastUpdateMessage: 'API Binance conectada e respondendo em tempo real.',
+            apiLastFetchTime: nowStr
+          }).catch(e => console.warn("Could not save status to Firestore:", e));
+        }
+
       } catch (err) {
         console.warn("Binance API fetch bypassed/blocked. Using simulated organic movements.", err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const nowStr = new Date().toLocaleString('pt-AO');
+        const lastFetchMs = config.apiLastFetchTime ? new Date(config.apiLastFetchTime).getTime() : 0;
+        if (config.apiLastUpdateStatus !== 'OFFLINE' || isNaN(lastFetchMs) || (Date.now() - lastFetchMs > 40000)) {
+          updateDoc(doc(db, 'config', 'platform'), {
+            apiLastUpdateStatus: 'OFFLINE',
+            apiLastUpdateMessage: `Erro de conexão / Limite excedido: ${errMsg}`,
+            apiLastFetchTime: nowStr
+          }).catch(e => console.warn("Could not save error status to Firestore:", e));
+        }
       }
     };
 
     fetchApiPrices();
-    const apiInterval = setInterval(fetchApiPrices, 8500);
+    const currentIntervalMs = platformConfig.apiBinanceIntervalMs ?? 8500;
+    const apiInterval = setInterval(fetchApiPrices, currentIntervalMs);
     return () => clearInterval(apiInterval);
-  }, []);
+  }, [platformConfig.apiBinanceIntervalMs, platformConfig.apiPriceDataSource]);
 
   const activeAsset = assets.find(a => a.id === activeAssetId) || assets[0] || null;
 
