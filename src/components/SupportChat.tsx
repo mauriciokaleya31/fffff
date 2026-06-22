@@ -37,6 +37,8 @@ export default function SupportChat() {
       const closeMin = closeH * 60 + closeM;
       const currentMin = currentH * 60 + currentM;
       
+      if (isNaN(openMin) || isNaN(closeMin)) return true; // Safe fallback if parsing values are empty or incomplete while editing
+      
       return currentMin >= openMin && currentMin <= closeMin;
     } catch (e) {
       return true; // safe fallback

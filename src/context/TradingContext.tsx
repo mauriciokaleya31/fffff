@@ -313,7 +313,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     const configDocRef = doc(db, 'config', 'platform');
     const unsubConfig = onSnapshot(configDocRef, (snap) => {
       if (snap.exists()) {
-        setPlatformConfig(snap.data() as PlatformConfig);
+        setPlatformConfig({ ...DEFAULT_CONFIG, ...snap.data() } as PlatformConfig);
       } else {
         setDoc(configDocRef, DEFAULT_CONFIG).catch(err => {
           handleFirestoreError(err, OperationType.WRITE, 'config/platform');
@@ -937,6 +937,12 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     updateDoc(doc(db, 'users', currentUser.id), {
       [fieldToUpdate]: userBalance - currentCost
     }).then(() => {
+      // Play sound for opening spot trade
+      if (type === 'BUY') {
+        playSound.tradeOpenUp();
+      } else {
+        playSound.tradeOpenDown();
+      }
       const tradeId = `trade-${Date.now()}`;
       const newTrade: Trade = {
         id: tradeId,
@@ -984,6 +990,14 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       updateDoc(doc(db, 'users', userToUpdate.id), {
         [field]: userToUpdate[field] + payoutAmount
       }).then(() => {
+        // Play sound for current user
+        if (currentUserRef.current && currentUserRef.current.id === userToUpdate.id) {
+          if (currentProfit > 0) {
+            playSound.tradeWin();
+          } else {
+            playSound.tradeLoss();
+          }
+        }
         updateDoc(doc(db, 'trades', tradeId), {
           closePrice: asset.price,
           closeTime: Date.now(),
