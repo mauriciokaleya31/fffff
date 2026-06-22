@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Asset, Trade, Transaction, UserAccount, PlatformConfig, VerificationData } from '../types';
 import { INITIAL_ASSETS } from '../data/initialAssets';
+import { playSound } from '../lib/audio';
 import { 
   db, 
   auth,
@@ -288,6 +289,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   platformConfigRef.current = platformConfig;
   const transactionsRef = useRef(transactions);
   transactionsRef.current = transactions;
+  const assetsRef = useRef(assets);
+  assetsRef.current = assets;
+  const activeAssetIdRef = useRef(activeAssetId);
+  activeAssetIdRef.current = activeAssetId;
 
   // Real-time Firestore Listeners Setup
   useEffect(() => {
@@ -969,30 +974,51 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
 
     const fieldToUpdate = currentUser.isDemo ? 'demoBalance' : 'balance';
 
-    updateDoc(doc(db, 'users', currentUser.id), {
-      [fieldToUpdate]: userBalance - investment
-    }).then(() => {
-      const tradeId = `trade-${Date.now()}`;
-      const newTrade: Trade = {
-        id: tradeId,
-        userId: currentUser.id,
-        assetId,
-        assetSymbol: asset.symbol,
-        assetName: asset.name,
-        type: 'BUY',
-        mode: 'BINARY',
-        quantity: investment,
-        openPrice: asset.price,
-        status: 'OPEN',
-        openTime: Date.now(),
-        prediction,
-        duration: durationSeconds,
-        timeLeft: durationSeconds,
-        profit: -investment
+    // 1. Prepare trade ID and trade object
+    const tradeId = `trade-${Date.now()}`;
+    const newTrade: Trade = {
+      id: tradeId,
+      userId: currentUser.id,
+      assetId,
+      assetSymbol: asset.symbol,
+      assetName: asset.name,
+      type: 'BUY',
+      mode: 'BINARY',
+      quantity: investment,
+      openPrice: asset.price,
+      status: 'OPEN',
+      openTime: Date.now(),
+      prediction,
+      duration: durationSeconds,
+      timeLeft: durationSeconds,
+      profit: -investment
+    };
+
+    // 2. OPTIMISTIC UPDATE: update local UI state immediately for Quotex-like snappy response
+    const nextUserBalance = userBalance - investment;
+    setCurrentUser(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        [fieldToUpdate]: nextUserBalance
       };
-      setDoc(doc(db, 'trades', tradeId), newTrade)
-        .catch(err => handleFirestoreError(err, OperationType.WRITE, `trades/${tradeId}`));
-    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.id}`));
+    });
+
+    setTrades(prev => [newTrade, ...prev]);
+
+    // 3. Persist to Firestore in background without blocking
+    updateDoc(doc(db, 'users', currentUser.id), {
+      [fieldToUpdate]: nextUserBalance
+    }).catch(err => {
+      console.warn("Optimistic update error handling users document:", err);
+      handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.id}`);
+    });
+
+    setDoc(doc(db, 'trades', tradeId), newTrade)
+      .catch(err => {
+        console.warn("Optimistic update error setting trade document:", err);
+        handleFirestoreError(err, OperationType.WRITE, `trades/${tradeId}`);
+      });
 
     return true;
   }, [currentUser, assets, platformConfig]);
@@ -1000,7 +1026,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   // In-memory binary countdown tick loop (with Firestore persistence on settle)
   useEffect(() => {
     const mainTimer = setInterval(() => {
-      // 1. Advance Timers locally for UI rendering
+      // 1. Advance Timers locally for UI rendering (exact 1 second interval ticks)
       setTrades(prevTrades => {
         let hasChanges = false;
         const nextTrades = prevTrades.map(t => {
@@ -1010,7 +1036,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
             const userTarget = usersRef.current.find(u => u.id === t.userId);
             
             if (nextTimeLeft <= 0) {
-              const asset = assets.find(a => a.id === t.assetId);
+              const asset = assetsRef.current.find(a => a.id === t.assetId);
               
               const globalProb = platformConfigRef.current.globalWinProbability ?? 0;
               const winProbability = globalProb > 0 ? globalProb : (userTarget?.winProbability ?? 60);
@@ -1042,6 +1068,16 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
               const returnCash = won ? t.quantity * winMultiplier : 0;
               const actualNetProfit = won ? returnCash - t.quantity : -t.quantity;
 
+              // Audio settlement feedback
+              const isCurrentUser = currentUserRef.current && currentUserRef.current.id === t.userId;
+              if (isCurrentUser) {
+                if (won) {
+                  playSound.tradeWin();
+                } else {
+                  playSound.tradeLoss();
+                }
+              }
+
               if (userTarget) {
                 const userDemo = currentUserRef.current?.id === userTarget.id && currentUserRef.current.isDemo;
                 const field = userDemo ? 'demoBalance' : 'balance';
@@ -1050,6 +1086,18 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
                 updateDoc(doc(db, 'users', userTarget.id), {
                   [field]: userTarget[field] + returnCash
                 }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userTarget.id}`));
+
+                // OPTIMISTIC UPDATE: Increment client-side currentUser balance immediately so the settlement result is instant
+                if (currentUserRef.current && currentUserRef.current.id === userTarget.id) {
+                  const targetField = currentUserRef.current.isDemo ? 'demoBalance' : 'balance';
+                  setCurrentUser(prev => {
+                    if (!prev) return null;
+                    return {
+                      ...prev,
+                      [targetField]: prev[targetField] + returnCash
+                    };
+                  });
+                }
               }
 
               // Update the trade document in Firestore
@@ -1071,7 +1119,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
               };
             } else {
               // Countdown ticker step
-              const asset = assets.find(a => a.id === t.assetId);
+              const asset = assetsRef.current.find(a => a.id === t.assetId);
               let tempProfit = -t.quantity;
               if (asset) {
                 const goingUp = asset.price > t.openPrice;
@@ -1081,6 +1129,13 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
                   tempProfit = t.quantity * (globalPayout / 100);
                 }
               }
+
+              // Sound countdown ticker for the last 5 seconds of the current user's trade
+              const isCurrentUser = currentUserRef.current && currentUserRef.current.id === t.userId;
+              if (isCurrentUser && nextTimeLeft <= 5) {
+                playSound.tick();
+              }
+
               return {
                 ...t,
                 timeLeft: nextTimeLeft,
@@ -1094,18 +1149,20 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         return hasChanges ? nextTrades : prevTrades;
       });
 
-      // 2. Coordinated real-time organic price drift via Firestore
+      // 2. Coordinated real-time organic price drift (Smooth, lag-free local + Firestore broadcast updates)
       if (platformConfigRef.current.marketStatus === 'OPEN') {
-        assets.forEach(asset => {
-          // If updated recently (within 2.8 seconds), another client is drifting it in real time
-          if (asset.updatedAt && (Date.now() - asset.updatedAt < 2800)) {
+        const updatedAssetsList: Asset[] = [];
+        assetsRef.current.forEach(asset => {
+          // If updated recently (within 950ms) by another client, skip to prevent collisions
+          if (asset.updatedAt && (Date.now() - asset.updatedAt < 950)) {
+            updatedAssetsList.push(asset);
             return;
           }
 
-          const baseVol = 0.002;
+          const baseVol = 0.0025;
           const volMultiplier = platformConfigRef.current.marketVolatilityMultiplier;
           const scale = baseVol * volMultiplier;
-          const changePercent = (Math.random() - 0.49) * 2 * scale;
+          const changePercent = (Math.random() - 0.495) * 2 * scale;
           
           const oldPrice = asset.price;
           const rawPrice = oldPrice * (1 + changePercent);
@@ -1132,11 +1189,24 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
             updatedAt: Date.now()
           };
 
-          // Broadcast to Firestore in true real-time so all connected clients observe identical prices
-          setDoc(doc(db, 'assets', asset.id), updatedAsset).catch(err => {
-            console.warn("Could not save asset organic drift to Firestore:", err);
-          });
+          updatedAssetsList.push(updatedAsset);
+
+          // Broadcast to Firestore with some randomized/throttled frequency (approx 15% probability per second overall)
+          // Active activeAssetId has slightly higher frequency for fast updates across clients without congesting the connection
+          const isActiveAsset = activeAssetIdRef.current === asset.id;
+          const writeProbability = isActiveAsset ? 0.30 : 0.08;
+          
+          if (Math.random() < writeProbability) {
+            setDoc(doc(db, 'assets', asset.id), updatedAsset).catch(err => {
+              console.warn("Could not save asset organic drift to Firestore:", err);
+            });
+          }
         });
+
+        // Instantly reflect prices locally for an extremely responsive Quotex style chart tick speed
+        if (updatedAssetsList.length > 0) {
+          setAssets(updatedAssetsList);
+        }
       }
 
       // 3. For spot trades open, update current floating profit & loss
@@ -1145,7 +1215,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         const computed = prevTrades.map(t => {
           if (t.mode === 'SPOT' && t.status === 'OPEN') {
             hasOpenSpot = true;
-            const assetInstance = assets.find(a => a.id === t.assetId);
+            const assetInstance = assetsRef.current.find(a => a.id === t.assetId);
             if (assetInstance) {
               let currentProfit = 0;
               if (t.type === 'BUY') {
@@ -1164,10 +1234,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         return hasOpenSpot ? computed : prevTrades;
       });
 
-    }, 3000);
+    }, 1000);
 
     return () => clearInterval(mainTimer);
-  }, [assets, platformConfig]);
+  }, []);
 
   // ADMIN ACTIONS - Writes directly into Firestore
   const adminAdjustUserWinProbability = useCallback((userId: string, prob: 10 | 40 | 60 | 100) => {

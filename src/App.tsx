@@ -33,7 +33,11 @@ function DashboardContent() {
 
       if (fbUser && !fbUser.isAnonymous) {
         try {
-          await fbUser.reload();
+          // Garantir que o reload no estado inicial de autenticação não trave
+          await Promise.race([
+            fbUser.reload(),
+            new Promise((resolve) => setTimeout(resolve, 1500))
+          ]);
         } catch (e) {
           console.warn("Reload error during verification state setup:", e);
         }
@@ -68,7 +72,11 @@ function DashboardContent() {
 
         if (fbUser && !fbUser.isAnonymous) {
           try {
-            await fbUser.reload();
+            // Garantir que a verificação periódica em background não trave a aplicação
+            await Promise.race([
+              fbUser.reload(),
+              new Promise((resolve) => setTimeout(resolve, 1500))
+            ]);
             const isFbBypassed = localStorage.getItem('bypass_verif_' + fbUser.uid) === 'true';
             if (auth.currentUser?.emailVerified || isFbBypassed) {
               setEmailVerified(true);

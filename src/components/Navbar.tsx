@@ -1,7 +1,8 @@
 import { useTrading } from '../context/TradingContext';
-import { Shield, User, Wallet, LogOut, Code, Globe2, ArrowRightLeft } from 'lucide-react';
+import { Shield, User, Wallet, LogOut, Code, Globe2, ArrowRightLeft, Receipt, Volume2, VolumeX } from 'lucide-react';
 import { useState } from 'react';
 import { formatKz } from '../utils';
+import { playSound } from '../lib/audio';
 
 export default function Navbar() {
   const { 
@@ -19,6 +20,7 @@ export default function Navbar() {
   } = useTrading();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(playSound.isEnabled());
 
   if (!currentUser) return null;
 
@@ -102,6 +104,21 @@ export default function Navbar() {
               >
                 <LogOut size={14} className="rotate-180 text-rose-500 text-current" />
                 Sacar / Levantar
+              </button>
+              <button
+                id="nav-history-btn"
+                onClick={() => {
+                  setActiveView('wallet');
+                  setWalletTab('history');
+                }}
+                className={`flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg transition-all ${
+                  activeView === 'wallet' && walletTab === 'history'
+                    ? 'bg-sky-600 text-white font-bold shadow-md shadow-sky-500/10'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900/40'
+                }`}
+              >
+                <Receipt size={14} className="text-sky-400" />
+                Historial
               </button>
             </div>
           )}
@@ -192,6 +209,27 @@ export default function Navbar() {
                 <Shield size={16} />
               </button>
             )}
+            <button
+              id="toggle-sound-btn"
+              onClick={() => {
+                if (isSoundEnabled) {
+                  playSound.disable();
+                  setIsSoundEnabled(false);
+                } else {
+                  playSound.enable();
+                  playSound.tradeOpen();
+                  setIsSoundEnabled(true);
+                }
+              }}
+              className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-all bg-slate-950 border-slate-800 ${
+                isSoundEnabled
+                  ? 'text-slate-400 hover:text-amber-400 hover:border-amber-500/30'
+                  : 'text-red-500/80 hover:text-red-400 border-red-500/20 bg-red-500/5'
+              }`}
+              title={isSoundEnabled ? "Desativar Sons da Plataforma" : "Ativar Sons da Plataforma"}
+            >
+              {isSoundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            </button>
             <button
               id="logout-btn"
               onClick={logout}

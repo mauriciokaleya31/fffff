@@ -29,7 +29,11 @@ export default function EmailVerificationGate({ onVerified }: { onVerified: () =
       localStorage.setItem('bypass_verif_general', 'true');
       if (auth.currentUser) {
         try {
-          await auth.currentUser.reload();
+          // Garantir que a recarga não fica pendente infinitamente se a ligação ao Firebase demorar ou falhar
+          await Promise.race([
+            auth.currentUser.reload(),
+            new Promise((resolve) => setTimeout(resolve, 1500))
+          ]);
         } catch (reloadErr) {
           console.warn("Soft reload ignore during manual verification button click:", reloadErr);
         }
@@ -75,7 +79,11 @@ export default function EmailVerificationGate({ onVerified }: { onVerified: () =
     const checkInterval = setInterval(async () => {
       if (auth.currentUser) {
         try {
-          await auth.currentUser.reload();
+          // Limitar tempo de espera para evitar bloqueio e garantir transições fluidas
+          await Promise.race([
+            auth.currentUser.reload(),
+            new Promise((resolve) => setTimeout(resolve, 1500))
+          ]);
           if (auth.currentUser.emailVerified) {
             clearInterval(checkInterval);
             onVerified();

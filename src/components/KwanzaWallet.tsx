@@ -141,7 +141,7 @@ export default function KwanzaWallet() {
           }`}
         >
           <Receipt size={14} className="text-sky-500" />
-          Carteira
+          Historial
         </button>
       </div>
 

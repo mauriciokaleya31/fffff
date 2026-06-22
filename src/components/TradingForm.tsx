@@ -3,6 +3,7 @@ import { useTrading } from '../context/TradingContext';
 import { Asset } from '../types';
 import { Clock, ArrowUpRight, ArrowDownRight, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { formatKz, formatKzNum } from '../utils';
+import { playSound } from '../lib/audio';
 
 interface TradingFormProps {
   asset: Asset | null;
@@ -64,6 +65,7 @@ export default function TradingForm({ asset }: TradingFormProps) {
 
     const success = placeBinaryTrade(asset.id, prediction, investment, duration);
     if (success) {
+      playSound.tradeOpen();
       triggerNotif('success', `Contrato Rápido (${prediction === 'UP' ? 'ALTA' : 'BAIXA'}) de ${duration}s registado!`);
     } else {
       triggerNotif('error', 'Falha ao colocar o contrato rápido.');

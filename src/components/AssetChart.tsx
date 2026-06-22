@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Asset } from '../types';
+import { useTrading } from '../context/TradingContext';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -23,6 +24,7 @@ type ChartType = 'area' | 'candle' | 'heikin' | 'bars';
 type TimeFrame = '5s' | '15s' | '1m' | '5m' | '1h';
 
 export default function AssetChart({ asset }: AssetChartProps) {
+  const { trades, currentUser } = useTrading();
   const [chartType, setChartType] = useState<ChartType>('area');
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('1m');
   const [showBollinger, setShowBollinger] = useState(true);
@@ -97,6 +99,17 @@ export default function AssetChart({ asset }: AssetChartProps) {
     const fillPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)},${chartHeight} L ${points[0].x.toFixed(1)},${chartHeight} Z`;
     return { linePath, fillPath };
   }, [points]);
+
+  // Filter and compute active open positions/trades placed by current user for the selected asset (Quotex style open target level marker)
+  const activeUserTradesForAsset = useMemo(() => {
+    if (!currentUser || !trades || !asset) return [];
+    return trades.filter(t => 
+      t.userId === currentUser.id && 
+      t.assetId === asset.id && 
+      t.status === 'OPEN' &&
+      t.mode === 'BINARY'
+    );
+  }, [trades, currentUser, asset]);
 
   // Compute Japanese Candlesticks (OHLC simulation)
   const candlesticks = useMemo(() => {
@@ -771,6 +784,93 @@ export default function AssetChart({ asset }: AssetChartProps) {
               </text>
             </g>
           )}
+
+          {/* Active binary trades level indicators (Quotex Style, shows entry position and price value remaining on chart) */}
+          {activeUserTradesForAsset.map((trade) => {
+            const tradeY = chartHeight - ((trade.openPrice - minPrice) / priceRange) * chartHeight;
+            // Handle clamping or off-chart rendering safely
+            if (tradeY < 0 || tradeY > chartHeight) return null;
+
+            const isUP = trade.prediction === 'UP';
+            const strokeColor = isUP ? '#10b981' : '#f43f5e';
+            const badgeBorder = isUP ? '#34d399' : '#f87171';
+            
+            return (
+              <g key={trade.id} className="select-none">
+                {/* Dashed Horizontal price level line of the open trade */}
+                <line
+                  x1="0"
+                  y1={tradeY}
+                  x2={chartWidth - 60}
+                  y2={tradeY}
+                  stroke={strokeColor}
+                  strokeWidth="1.2"
+                  strokeDasharray="4 3"
+                />
+
+                {/* Left Side Pulse dot for entry point indicator */}
+                <circle
+                  cx="12"
+                  cy={tradeY}
+                  r="3.5"
+                  fill={strokeColor}
+                />
+                <circle
+                  cx="12"
+                  cy={tradeY}
+                  r="7"
+                  fill="none"
+                  stroke={strokeColor}
+                  strokeWidth="0.8"
+                  className="animate-ping opacity-60"
+                />
+
+                {/* Dynamic Quotex Style Overlay price/time badge displaying entry price position */}
+                <g transform={`translate(${chartWidth - 195}, ${tradeY - 9.5})`}>
+                  {/* Outer Frame with background */}
+                  <rect
+                    width="130"
+                    height="19"
+                    rx="4"
+                    fill="#020617"
+                    stroke={badgeBorder}
+                    strokeWidth="1.2"
+                    fillOpacity="0.95"
+                  />
+                  {/* Indicator Box (Up/Down direction indicator) */}
+                  <rect
+                    width="18"
+                    height="19"
+                    rx="3"
+                    fill={strokeColor}
+                  />
+                  <text
+                    x="9"
+                    y="12.5"
+                    fill="#ffffff"
+                    fontSize="11"
+                    fontWeight="900"
+                    textAnchor="middle"
+                  >
+                    {isUP ? '↑' : '↓'}
+                  </text>
+                  
+                  {/* Value and remaining countdown time */}
+                  <text
+                    x="25"
+                    y="12"
+                    fill="#ffffff"
+                    fontSize="8.5"
+                    fontWeight="700"
+                    textAnchor="start"
+                    className="font-mono"
+                  >
+                    {formatKz(trade.openPrice)} | {trade.timeLeft}s
+                  </text>
+                </g>
+              </g>
+            );
+          })}
 
           {/* 8. RSI OSCILLATOR PANEL (Bottom) */}
           {showRSI && (

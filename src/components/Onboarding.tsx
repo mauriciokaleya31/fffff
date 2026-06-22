@@ -198,7 +198,11 @@ export default function Onboarding() {
       }
       if (auth.currentUser) {
         try {
-          await auth.currentUser.reload();
+          // Garantir que a recarga não fica travada indefinidamente se o Firebase falhar/tardar
+          await Promise.race([
+            auth.currentUser.reload(),
+            new Promise((resolve) => setTimeout(resolve, 1500))
+          ]);
         } catch (reloadErr) {
           console.warn("Erro suave ao atualizar perfil durante checagem de onboarding:", reloadErr);
         }
@@ -326,10 +330,6 @@ export default function Onboarding() {
                       {(platformConfig.logoText || "K").substring(0, 1).toUpperCase()}
                     </span>
                   </div>
-                  <div className="text-left">
-                    <span className="font-display font-black text-md text-white tracking-tight">{platformConfig.logoText || "KzOption"}</span>
-                    <p className="text-[8px] text-emerald-400 font-mono uppercase tracking-widest font-bold">Trading Online Angola</p>
-                  </div>
                 </div>
               )}
             </div>
@@ -338,7 +338,6 @@ export default function Onboarding() {
             <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-400">
               <a href="#simulador" className="hover:text-white transition-all">Praticar Simulador</a>
               <a href="#vantagens" className="hover:text-white transition-all">Vantagens</a>
-              <a href="#parceiros" className="hover:text-white transition-all">Bancos Parceiros</a>
               {platformConfig.communityLink && (
                 <a href={platformConfig.communityLink} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400 text-amber-500 font-bold transition-all flex items-center gap-1">
                   Comunidade Telegram
@@ -376,11 +375,6 @@ export default function Onboarding() {
 
         {/* ================= HERO SECTION ================= */}
         <section className="pt-16 pb-20 px-6 max-w-5xl mx-auto text-center space-y-8 relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full text-[10px] font-bold uppercase tracking-widest">
-            <Sparkles size={12} />
-            <span>{platformConfig.heroBadge || `Retorno de até ${platformConfig.winPayoutPercentage || 80}% por contrato vitorioso`}</span>
-          </div>
-          
           <h1 className="font-display font-black text-4xl sm:text-5xl md:text-6xl text-white leading-[1.1] tracking-tight max-w-4xl mx-auto">
             {platformConfig.heroTitle ? (
               <span>{platformConfig.heroTitle}</span>
@@ -628,19 +622,7 @@ export default function Onboarding() {
           </div>
         </section>
 
-        {/* ================= BANKING PARTNERS ================= */}
-        <section id="parceiros" className="py-12 bg-slate-950 border-y border-slate-900 scroll-mt-24">
-          <div className="max-w-5xl mx-auto px-6 text-center space-y-6">
-            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-bold block text-center">{platformConfig.banksSubtitle || "Transferências Instantâneas Suportadas"}</span>
-            <div className="flex flex-wrap items-center justify-center gap-10 md:gap-16 opacity-45 grayscale hover:grayscale-0 transition-all duration-300">
-              <span className="font-display font-black text-white text-md tracking-widest uppercase">BFA</span>
-              <span className="font-display font-black text-white text-md tracking-widest uppercase">BAI</span>
-              <span className="font-display font-black text-white text-md tracking-widest uppercase">BANCO BIC</span>
-              <span className="font-display font-black text-white text-md tracking-widest uppercase">BANCO SOL</span>
-              <span className="font-display font-black text-white text-md tracking-widest uppercase">MILLENNIUM</span>
-            </div>
-          </div>
-        </section>
+
 
         {/* ================= REGULAR FAQ ACCORDION ================= */}
         <section className="py-16 px-6 max-w-3xl mx-auto space-y-8 relative z-10 scroll-mt-24">
