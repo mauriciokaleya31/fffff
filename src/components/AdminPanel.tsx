@@ -7,7 +7,7 @@ import {
   ShieldCheck, FileText, Fingerprint, Eye, EyeOff, Search, Filter,
   ArrowUpRight, ArrowDownLeft, Clock, Percent, Activity, Sparkles,
   RefreshCw, Smartphone, MapPin, Receipt, ShieldAlert, BookOpen, BarChart3, TrendingUp,
-  Cpu
+  Cpu, MessageCircle
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -41,11 +41,19 @@ export default function AdminPanel() {
     adminConfigurePlatformSetting,
     adminApproveVerification,
     adminRejectVerification,
-    onlineUsersCount
+    onlineUsersCount,
+    supportMessages,
+    sendSupportMessage,
+    adminResetSystem
   } = useTrading();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'market' | 'traffic' | 'compliance' | 'system' | 'cms' | 'api'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'market' | 'traffic' | 'compliance' | 'system' | 'cms' | 'api' | 'support'>('overview');
+  const [selectedConvoUserId, setSelectedConvoUserId] = useState<string>('');
+  const [adminReplyText, setAdminReplyText] = useState<string>('');
+  const adminChatBottomRef = React.useRef<HTMLDivElement>(null);
   const [statsRange, setStatsRange] = useState<'week' | 'month' | 'all'>('week');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
   
   // CMS state values
   const [cmsForm, setCmsForm] = useState<any>({});
@@ -661,6 +669,27 @@ export default function AdminPanel() {
               {platformConfig.maintenanceMode && (
                 <span className="px-1.5 py-0.5 bg-rose-600 text-white text-[9px] font-bold rounded-full animate-pulse font-mono block">
                   MANUT.
+                </span>
+              )}
+            </button>
+
+            {/* button 8: Chat de Atendimento de Suporte */}
+            <button
+              id="admin-support-tab"
+              onClick={() => setActiveTab('support')}
+              className={`w-full py-2.5 px-3 text-xs font-semibold font-display rounded-xl flex items-center justify-between gap-2.5 transition-all outline-none ${
+                activeTab === 'support'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/10 font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <MessageCircle size={15} className={activeTab === 'support' ? 'text-slate-950' : 'text-slate-500'} />
+                <span>Suporte ao Investidor</span>
+              </div>
+              {supportMessages.filter(msg => msg.senderId !== 'admin').length > 0 && (
+                <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 text-[9px] font-bold rounded-full font-mono block animate-pulse">
+                  CHAT
                 </span>
               )}
             </button>
@@ -2446,6 +2475,73 @@ export default function AdminPanel() {
                 </div>
               </div>
 
+              {/* DANGER EMERGENCY ZONE RESET CARD */}
+              <div className="bg-slate-950 rounded-2xl p-6 border border-rose-950/40 bg-gradient-to-br from-slate-950 to-rose-950/10 space-y-5 col-span-1 lg:col-span-2 text-left">
+                <h4 className="font-display font-bold text-xs text-rose-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-rose-950/50 pb-2">
+                  <ShieldAlert size={14} className="text-rose-500" /> ⚠️ Comando de Emergência: Reset Geral do Sistema
+                </h4>
+                
+                <div className="space-y-3">
+                  <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                    Esta ação irá <strong>limpar por completo</strong> todas as informações operacionais registradas no Firebase Firestore de forma irreversível.
+                  </p>
+                  
+                  <ul className="text-[10px] text-slate-500 space-y-1.5 list-disc pl-4 font-sans">
+                    <li>Apaga todo o histórico de transações de Depósito e Levantamento.</li>
+                    <li>Elimina permanentemente todo o histórico de ordens abertas e fechadas de Trading.</li>
+                    <li>Redefine os saldos de todas as contas para 150.000,00 AOA Reais e 1.000.000,00 AOA de Demonstração.</li>
+                  </ul>
+
+                  {resetSuccess && (
+                    <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-mono font-bold animate-pulse">
+                      ✓ Sistema zerado com sucesso! Todas as operações foram excluídas e os saldos foram restaurados.
+                    </div>
+                  )}
+
+                  {!showResetConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetSuccess(false);
+                        setShowResetConfirm(true);
+                      }}
+                      className="w-full bg-rose-600/10 hover:bg-rose-600 border border-rose-900/55 hover:text-slate-950 text-rose-400 font-display font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Trash2 size={13} />
+                      Zerar todo o Sistema (Limpeza Geral)
+                    </button>
+                  ) : (
+                    <div className="bg-rose-950/30 border border-rose-500/30 rounded-xl p-4 space-y-3">
+                      <p className="text-[10px] text-rose-400 font-bold uppercase tracking-wider">
+                        TEM A CERTEZA? ISTO NÃO PODE SER DESFEITO!
+                      </p>
+                      
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            adminResetSystem();
+                            setShowResetConfirm(false);
+                            setResetSuccess(true);
+                            setTimeout(() => setResetSuccess(false), 5000);
+                          }}
+                          className="flex-1 bg-rose-600 text-slate-950 font-display font-black text-xs py-2 px-3 rounded-lg hover:bg-rose-500 transition-colors cursor-pointer text-center"
+                        >
+                          Sim, Zerar Agora
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowResetConfirm(false)}
+                          className="flex-1 bg-slate-900 border border-slate-700 text-slate-300 font-display font-bold text-xs py-2 px-3 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer text-center"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
 
           </div>
@@ -3173,6 +3269,264 @@ export default function AdminPanel() {
             </div>
           </div>
         )}
+
+        {/* SUB-SECTION 10: Admin Live Support Chat */}
+        {activeTab === 'support' && (() => {
+          const convoUsers = Array.from(new Set(supportMessages.map(m => m.userId)))
+            .filter(uId => uId !== 'admin')
+            .map(uId => {
+              const uMsgs = supportMessages.filter(m => m.userId === uId);
+              const lastMsg = uMsgs[uMsgs.length - 1];
+              const participant = users.find(u => u.id === uId);
+              return {
+                userId: uId,
+                userName: participant?.name || lastMsg?.userName || 'Parceiro Desconhecido',
+                email: participant?.email || 'Sem endereço de e-mail',
+                lastMessage: lastMsg?.text || '',
+                lastTimestamp: lastMsg?.timestamp || 0,
+                isUnreplied: lastMsg && lastMsg.senderId !== 'admin'
+              };
+            })
+            .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+
+          const activeConvoMsgs = supportMessages.filter(m => m.userId === selectedConvoUserId);
+          const activeUserAccount = users.find(u => u.id === selectedConvoUserId);
+
+          const handleAdminSendReply = async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!adminReplyText.trim() || !selectedConvoUserId) return;
+            await sendSupportMessage(adminReplyText, selectedConvoUserId);
+            setAdminReplyText('');
+            setTimeout(() => adminChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+          };
+
+          return (
+            <div className="space-y-6 animate-fade-in text-left">
+              {/* Support Module Header */}
+              <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h3 className="font-display font-black text-lg text-white flex items-center gap-2 uppercase tracking-wide">
+                    <MessageCircle className="text-amber-500" size={20} />
+                    Central de Atendimento ao Investidor
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Atenda as solicitações de suporte em tempo real, defina o horário de expediente e controle o status do atendimento.
+                  </p>
+                </div>
+                
+                {/* Config Quick Ribbon */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs">
+                    <Clock size={12} className="text-slate-500" />
+                    <span className="text-slate-400 font-mono">Expediente:</span>
+                    <input
+                      type="text"
+                      id="admin-support-open"
+                      value={platformConfig.supportOpenHour ?? '08:00'}
+                      onChange={(e) => adminConfigurePlatformSetting({ supportOpenHour: e.target.value })}
+                      className="bg-slate-950 border border-slate-800 text-white font-mono text-[11px] rounded px-1.5 py-0.5 w-[50px] text-center"
+                      placeholder="08:00"
+                    />
+                    <span className="text-slate-600 font-bold">-</span>
+                    <input
+                      type="text"
+                      id="admin-support-close"
+                      value={platformConfig.supportCloseHour ?? '18:00'}
+                      onChange={(e) => adminConfigurePlatformSetting({ supportCloseHour: e.target.value })}
+                      className="bg-slate-950 border border-slate-800 text-white font-mono text-[11px] rounded px-1.5 py-0.5 w-[50px] text-center"
+                      placeholder="18:00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* OVERRIDE FORCE SWITCHER BLOCK */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  type="button"
+                  onClick={() => adminConfigurePlatformSetting({ supportStatusForce: 'AUTO' })}
+                  className={`p-4 rounded-xl border text-left transition-all ${
+                    (platformConfig.supportStatusForce ?? 'AUTO') === 'AUTO'
+                      ? 'bg-amber-500/10 border-amber-500 text-amber-500'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="font-bold text-xs uppercase mb-1">⏰ Automatizado (Padrão)</div>
+                  <p className="text-[10px] opacity-80 leading-relaxed font-sans">
+                    Respeita os horários definidos acima ({platformConfig.supportOpenHour ?? '08:00'} às {platformConfig.supportCloseHour ?? '18:00'}).
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => adminConfigurePlatformSetting({ supportStatusForce: 'OPEN' })}
+                  className={`p-4 rounded-xl border text-left transition-all ${
+                    (platformConfig.supportStatusForce ?? 'AUTO') === 'OPEN'
+                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="font-bold text-xs uppercase mb-1">🟢 Forçar Sempre Online</div>
+                  <p className="text-[10px] opacity-80 leading-relaxed font-sans">
+                    Ignora os horários e mantém o suporte aberto para mensagens 24 horas por dia.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => adminConfigurePlatformSetting({ supportStatusForce: 'CLOSED' })}
+                  className={`p-4 rounded-xl border text-left transition-all ${
+                    (platformConfig.supportStatusForce ?? 'AUTO') === 'CLOSED'
+                      ? 'bg-rose-500/10 border-rose-500 text-rose-400'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="font-bold text-xs uppercase mb-1">🔴 Forçar Sempre Offline</div>
+                  <p className="text-[10px] opacity-80 leading-relaxed font-sans">
+                    Bloqueia o envio de mensagens informando que o atendimento está fechado de momento.
+                  </p>
+                </button>
+              </div>
+
+              {/* SPLIT CHAT LAYOUT PANEL */}
+              <div className="grid grid-cols-12 gap-6 pb-12">
+                {/* Conversations Sidebar (Left) */}
+                <div className="col-span-12 lg:col-span-4 bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col h-[520px]">
+                  <span className="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest border-b border-slate-900 pb-2.5 mb-3 block">
+                    Conversas Ativas ({convoUsers.length})
+                  </span>
+                  
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1.5 custom-scrollbar">
+                    {convoUsers.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-600 gap-2">
+                        <MessageCircle size={28} className="opacity-40" />
+                        <p className="text-[10px] font-sans">Nenhuma conversa de suporte disponível no momento.</p>
+                      </div>
+                    ) : (
+                      convoUsers.map((convo) => {
+                        const isSelected = selectedConvoUserId === convo.userId;
+                        return (
+                          <div
+                            key={convo.userId}
+                            onClick={() => setSelectedConvoUserId(convo.userId)}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-start gap-2 relative overflow-hidden ${
+                              isSelected
+                                ? 'bg-amber-500/10 border-amber-500'
+                                : convo.isUnreplied
+                                ? 'bg-slate-900 border-red-900/65 hover:bg-slate-850'
+                                : 'bg-slate-900/40 border-slate-800/80 hover:bg-slate-900'
+                            }`}
+                          >
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-white truncate block">
+                                  {convo.userName}
+                                </span>
+                                {convo.isUnreplied && (
+                                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                                )}
+                              </div>
+                              <span className="text-[9px] text-slate-500 truncate block font-mono">
+                                {convo.email}
+                              </span>
+                              <p className="text-[10px] text-slate-400 truncate font-sans font-medium">
+                                {convo.lastMessage}
+                              </p>
+                            </div>
+                            
+                            <span className="text-[8px] font-mono text-slate-600 shrink-0 select-none">
+                              {new Date(convo.lastTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Conversation Box (Right) */}
+                <div className="col-span-12 lg:col-span-8 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col h-[520px] overflow-hidden">
+                  {!selectedConvoUserId ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-500 gap-3">
+                      <MessageCircle size={44} className="text-slate-800 animate-bounce" />
+                      <div>
+                        <span className="text-xs font-semibold text-slate-400 block font-display">Nenhuma Conversa Selecionada</span>
+                        <p className="text-[10px] text-slate-600 max-w-[280px] leading-relaxed mt-1 font-sans font-medium">
+                          Selecione um cliente na lista à esquerda para analisar o histórico e fornecer suporte técnico em tempo real.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Convo Header */}
+                      <div className="px-5 py-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center select-none">
+                        <div className="text-left">
+                          <span className="text-xs font-bold text-white block">
+                            {activeUserAccount?.name || 'Cliente'}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {activeUserAccount?.email || 'Sem registo'} • Saldo: {formatKz(activeUserAccount?.balance ?? 0)}
+                          </span>
+                        </div>
+                        
+                        <span className="text-[9px] bg-slate-900 text-amber-500 border border-slate-800 px-2 py-0.5 rounded font-mono">
+                          ID: {selectedConvoUserId.substring(0, 8)}...
+                        </span>
+                      </div>
+
+                      {/* Chat Messages Body */}
+                      <div className="flex-1 overflow-y-auto p-5 space-y-3.5 bg-slate-950/40">
+                        {activeConvoMsgs.map((msg) => {
+                          const isSupportSide = msg.senderId === 'admin';
+                          return (
+                            <div key={msg.id} className={`flex ${isSupportSide ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-xs text-left ${
+                                isSupportSide
+                                  ? 'bg-amber-500 text-slate-950 rounded-tr-none font-medium'
+                                  : 'bg-slate-900 text-slate-200 border border-slate-800 rounded-tl-none font-medium'
+                              }`}>
+                                <div className="flex items-center gap-2 mb-0.5 justify-between">
+                                  <span className={`text-[9px] font-bold ${isSupportSide ? 'text-slate-900' : 'text-amber-400'}`}>
+                                    {isSupportSide ? 'Atendimento Suporte' : 'Utilizador'}
+                                  </span>
+                                  <span className="text-[8px] opacity-60 font-mono scale-90">
+                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                <p className="whitespace-pre-wrap leading-relaxed select-text font-sans">{msg.text}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div ref={adminChatBottomRef} />
+                      </div>
+
+                      {/* Convo Footer Input */}
+                      <div className="p-4 bg-slate-950 border-t border-slate-800">
+                        <form onSubmit={handleAdminSendReply} className="flex gap-3">
+                          <input
+                            type="text"
+                            value={adminReplyText}
+                            onChange={(e) => setAdminReplyText(e.target.value)}
+                            placeholder="Escreva a resposta para o utilizador..."
+                            className="flex-1 bg-slate-900 text-xs text-white border border-slate-850 rounded-xl px-4 py-2.5 outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 placeholder-slate-600 font-sans font-medium"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!adminReplyText.trim()}
+                            className="bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-display font-semibold text-xs px-5 rounded-xl transition-colors active:scale-97 cursor-pointer"
+                          >
+                            Enviar
+                          </button>
+                        </form>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
 

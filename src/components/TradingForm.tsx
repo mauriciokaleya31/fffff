@@ -65,7 +65,11 @@ export default function TradingForm({ asset }: TradingFormProps) {
 
     const success = placeBinaryTrade(asset.id, prediction, investment, duration);
     if (success) {
-      playSound.tradeOpen();
+      if (prediction === 'UP') {
+        playSound.tradeOpenUp();
+      } else {
+        playSound.tradeOpenDown();
+      }
       triggerNotif('success', `Contrato Rápido (${prediction === 'UP' ? 'ALTA' : 'BAIXA'}) de ${duration}s registado!`);
     } else {
       triggerNotif('error', 'Falha ao colocar o contrato rápido.');

@@ -45,6 +45,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Support Messages Collection rules
+    match /support_messages/{messageId} {
+      allow read, write: if true;
+    }
+
     // Connection test rule
     match /test/{testId} {
       allow read, write: if true;

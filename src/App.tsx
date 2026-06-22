@@ -10,6 +10,7 @@ import AdminPanel from './components/AdminPanel';
 import Onboarding from './components/Onboarding';
 import UserProfile from './components/UserProfile';
 import EmailVerificationGate from './components/EmailVerificationGate';
+import SupportChat from './components/SupportChat';
 import { auth } from './lib/firebase';
 import { Sparkles, ArrowRightLeft, Landmark } from 'lucide-react';
 
@@ -237,6 +238,8 @@ function DashboardContent() {
         )}
 
       </main>
+
+      <SupportChat />
 
       {/* High aesthetic footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-6 mt-12 text-xs text-slate-500">

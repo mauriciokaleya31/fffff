@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Asset, Trade, Transaction, UserAccount, PlatformConfig, VerificationData } from '../types';
+import { Asset, Trade, Transaction, UserAccount, PlatformConfig, VerificationData, SupportMessage } from '../types';
 import { INITIAL_ASSETS } from '../data/initialAssets';
 import { playSound } from '../lib/audio';
 import { 
@@ -68,6 +68,11 @@ interface TradingContextType {
   adminApproveVerification: (userId: string) => void;
   adminRejectVerification: (userId: string) => void;
   onlineUsersCount: number;
+
+  // Support & Chat Bot system definitions
+  supportMessages: SupportMessage[];
+  sendSupportMessage: (text: string, customUserId?: string) => Promise<void>;
+  adminResetSystem: () => Promise<void>;
 }
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -221,7 +226,10 @@ const DEFAULT_CONFIG: PlatformConfig = {
   apiLastUpdateStatus: 'ONLINE',
   apiLastUpdateMessage: 'Inicializado com sucesso',
   apiLastFetchTime: '',
-  apiCustomJustification: 'Sistema operando normalmente. Conexão direta com a rede Binance e cotação em tempo real.'
+  apiCustomJustification: 'Sistema operando normalmente. Conexão direta com a rede Binance e cotação em tempo real.',
+  supportOpenHour: '08:00',
+  supportCloseHour: '18:00',
+  supportStatusForce: 'AUTO'
 };
 
 export function TradingProvider({ children }: { children: React.ReactNode }) {
@@ -243,6 +251,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [platformConfig, setPlatformConfig] = useState<PlatformConfig>(DEFAULT_CONFIG);
+  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
 
   const [activeAssetId, setActiveAssetIdState] = useState<string>(() => {
     return INITIAL_ASSETS[0]?.id || '';
@@ -289,6 +298,8 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   platformConfigRef.current = platformConfig;
   const transactionsRef = useRef(transactions);
   transactionsRef.current = transactions;
+  const tradesRef = useRef(trades);
+  tradesRef.current = trades;
   const assetsRef = useRef(assets);
   assetsRef.current = assets;
   const activeAssetIdRef = useRef(activeAssetId);
@@ -386,14 +397,40 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       handleFirestoreError(error, OperationType.GET, 'transactions');
     });
 
+    // 6. Sync support messages
+    const supportColRef = collection(db, 'support_messages');
+    const unsubSupport = onSnapshot(supportColRef, (snap) => {
+      const list: SupportMessage[] = [];
+      snap.forEach(docSnap => {
+        list.push(docSnap.data() as SupportMessage);
+      });
+      list.sort((a, b) => a.timestamp - b.timestamp);
+      setSupportMessages(list);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'support_messages');
+    });
+
     return () => {
       unsubConfig();
       unsubAssets();
       unsubUsers();
       unsubTrades();
       unsubTx();
+      unsubSupport();
     };
   }, [authReady]);
+
+  // Alerter sound effect for live support chat
+  const msgCountRef = useRef<number>(0);
+  useEffect(() => {
+    if (supportMessages.length > msgCountRef.current) {
+      const lastMsg = supportMessages[supportMessages.length - 1];
+      if (lastMsg && currentUser && lastMsg.senderId !== currentUser.id) {
+        playSound.chatMessage();
+      }
+    }
+    msgCountRef.current = supportMessages.length;
+  }, [supportMessages, currentUser]);
 
   // Sync Logged-In user across triggers & write back to localStorage
   useEffect(() => {
@@ -1408,6 +1445,69 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
   }, []);
 
+  const sendSupportMessage = useCallback(async (text: string, customUserId?: string) => {
+    if (!currentUserRef.current) return;
+    
+    // Determine the subject userId of this support session
+    const convoUserId = currentUserRef.current.role === 'admin' 
+      ? (customUserId || 'admin') 
+      : currentUserRef.current.id;
+
+    const messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const newMsg: SupportMessage = {
+      id: messageId,
+      userId: convoUserId,
+      userName: currentUserRef.current.role === 'admin' 
+        ? (convoUserId === 'admin' ? 'Atendimento Geral' : 'Usuário Suporte') 
+        : currentUserRef.current.name,
+      senderId: currentUserRef.current.id,
+      senderName: currentUserRef.current.role === 'admin' ? 'Suporte Técnico' : currentUserRef.current.name,
+      text: text.trim(),
+      timestamp: Date.now()
+    };
+
+    try {
+      await setDoc(doc(db, 'support_messages', messageId), newMsg);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `support_messages/${messageId}`);
+    }
+  }, []);
+
+  const adminResetSystem = useCallback(async () => {
+    // 1. Delete all trades
+    tradesRef.current.forEach(async (trade) => {
+      try {
+        await deleteDoc(doc(db, 'trades', trade.id));
+      } catch (err) {
+        console.error("Error deleting trade during system clear:", err);
+      }
+    });
+
+    // 2. Delete all transactions
+    transactionsRef.current.forEach(async (tx) => {
+      try {
+        await deleteDoc(doc(db, 'transactions', tx.id));
+      } catch (err) {
+        console.error("Error deleting txn during system clear:", err);
+      }
+    });
+
+    // 3. Reset all user account balances
+    usersRef.current.forEach(async (u) => {
+      try {
+        await updateDoc(doc(db, 'users', u.id), {
+          balance: 150000.00,
+          demoBalance: 1000000.00,
+          isBlocked: false,
+          verificationStatus: 'NOT_SUBMITTED',
+          isVerified: false
+        });
+      } catch (err) {
+        console.error("Error resetting user credentials during system clear:", err);
+      }
+    });
+  }, []);
+
   return (
     <TradingContext.Provider value={{
       currentUser,
@@ -1448,7 +1548,10 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       updateProfileBasicData,
       adminApproveVerification,
       adminRejectVerification,
-      onlineUsersCount
+      onlineUsersCount,
+      supportMessages,
+      sendSupportMessage,
+      adminResetSystem
     }}>
       {children}
     </TradingContext.Provider>

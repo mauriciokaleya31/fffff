@@ -104,9 +104,27 @@
         "brokerSpreadPercentage": { "type": "number" },
         "globalWinProbability": { "type": "number" },
         "apiKey": { "type": "string" },
-        "webhookUrl": { "type": "string" }
+        "webhookUrl": { "type": "string" },
+        "supportOpenHour": { "type": "string" },
+        "supportCloseHour": { "type": "string" },
+        "supportStatusForce": { "type": "string", "enum": ["AUTO", "OPEN", "CLOSED"] }
       },
       "required": ["marketStatus", "minTradeAmount", "maxTradeAmount", "winPayoutPercentage"]
+    },
+    "SupportMessage": {
+      "title": "SupportMessage",
+      "description": "Messages sent in the interactive support live chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "userId", "userName", "senderId", "senderName", "text", "timestamp"]
     }
   },
   "firestore": {
@@ -129,6 +147,10 @@
     "config/platform": {
       "schema": "PlatformConfig",
       "description": "Global platform rules and settings document"
+    },
+    "support_messages/{messageId}": {
+      "schema": "SupportMessage",
+      "description": "Support chat messages exchanged between users and admins"
     }
   }
 }

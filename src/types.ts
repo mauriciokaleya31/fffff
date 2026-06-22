@@ -158,4 +158,19 @@ export interface PlatformConfig {
   apiLastUpdateMessage?: string; // Descriptive connection logs/proofs
   apiLastFetchTime?: string; // Date/Time of last fetch
   apiCustomJustification?: string; // Custom excuse/justification for outages or system audit logs
+
+  // Support schedule settings
+  supportOpenHour?: string; // e.g. "08:00"
+  supportCloseHour?: string; // e.g. "18:00"
+  supportStatusForce?: 'AUTO' | 'OPEN' | 'CLOSED'; // AUTO follows hours, OPEN is always open, CLOSED is always closed
+}
+
+export interface SupportMessage {
+  id: string;
+  userId: string;
+  userName: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: number;
 }
