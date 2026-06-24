@@ -51,6 +51,9 @@ export default function AdminPanel() {
   } = useTrading();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'transactions' | 'market' | 'traffic' | 'compliance' | 'system' | 'cms' | 'api' | 'support'>('overview');
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<string | null>(null);
   const [selectedConvoUserId, setSelectedConvoUserId] = useState<string>('');
   const [adminReplyText, setAdminReplyText] = useState<string>('');
   const adminChatBottomRef = React.useRef<HTMLDivElement>(null);
@@ -759,6 +762,44 @@ export default function AdminPanel() {
 
         {/* Dynamic content view container */}
         <div className="flex-1 p-6 overflow-x-hidden md:p-8">
+          
+          {/* Toast / Notification Alerts */}
+          {(successToast || errorToast) && (
+            <div className="mb-6 p-4 rounded-xl border flex items-center justify-between gap-3 animate-fade-in select-none bg-slate-950 border-slate-800">
+              <div className="flex items-center gap-3">
+                {successToast ? (
+                  <>
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                      <CheckCircle2 size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-emerald-400 font-display">Operação Bem-sucedida</p>
+                      <p className="text-[11px] text-slate-300 font-medium mt-0.5">{successToast}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-8 h-8 rounded-full bg-rose-500/15 flex items-center justify-center text-rose-400">
+                      <AlertTriangle size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-rose-400 font-display">Erro na Operação</p>
+                      <p className="text-[11px] text-slate-300 font-medium mt-0.5">{errorToast}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setSuccessToast(null);
+                  setErrorToast(null);
+                }}
+                className="text-[10px] text-slate-400 hover:text-white font-bold uppercase tracking-wider bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-850 hover:border-slate-700 cursor-pointer transition-all"
+              >
+                Fechar
+              </button>
+            </div>
+          )}
 
         {/* UPPER INTELLIGENCE METRICS DECK */}
         {activeTab === 'overview' && (
@@ -1394,17 +1435,39 @@ export default function AdminPanel() {
                         </button>
 
                         {/* Delete Button */}
-                        <button
-                          onClick={() => {
-                            if (confirm(`Tem a certeza de que deseja excluir permanentemente a conta de ${user.name} (${user.email})?`)) {
-                              adminDeleteUser(user.id);
-                            }
-                          }}
-                          className="flex-1 xl:w-full bg-rose-600/10 hover:bg-rose-650 text-rose-400 hover:text-slate-950 border border-rose-950 hover:border-rose-600 text-[10px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5 font-semibold cursor-pointer"
-                        >
-                          <Trash2 size={12} />
-                          Excluir
-                        </button>
+                        {deleteConfirmUserId === user.id ? (
+                          <div className="flex gap-1 flex-1 xl:w-full">
+                            <button
+                              onClick={() => {
+                                adminDeleteUser(user.id)
+                                  .then(() => {
+                                    setSuccessToast(`A conta de ${user.name} (${user.email}) foi removida permanentemente com sucesso!`);
+                                    setDeleteConfirmUserId(null);
+                                  })
+                                  .catch(err => {
+                                    setErrorToast(`Erro ao remover utilizador: ${err.message || err}`);
+                                  });
+                              }}
+                              className="flex-1 bg-red-600 hover:bg-red-500 text-white text-[10px] px-2 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 font-bold cursor-pointer"
+                            >
+                              Confirmar
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmUserId(null)}
+                              className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] px-2 py-1.5 rounded-xl transition-all flex items-center justify-center font-bold cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirmUserId(user.id)}
+                            className="flex-1 xl:w-full bg-rose-600/10 hover:bg-rose-650 text-rose-400 hover:text-slate-950 border border-rose-950 hover:border-rose-600 text-[10px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5 font-semibold cursor-pointer"
+                          >
+                            <Trash2 size={12} />
+                            Excluir
+                          </button>
+                        )}
                       </div>
 
                     </div>
@@ -1450,6 +1513,18 @@ export default function AdminPanel() {
                             <p>Método: <span className="text-white font-medium">{tx.paymentMethod}</span></p>
                             <p>Data: <span className="text-slate-500">{new Date(tx.date).toLocaleString('pt-AO')}</span></p>
                             <p>Cód Ref: <span className="text-amber-500 font-bold">{tx.proofNumber || 'AOA-OUT'}</span></p>
+                            {tx.proofFileName && (
+                              <div className="col-span-1 sm:col-span-2 mt-2 pt-2 border-t border-slate-900 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] text-slate-500 font-sans font-semibold">Comprovativo:</span>
+                                <a
+                                  href={tx.proofFileBase64}
+                                  download={tx.proofFileName}
+                                  className="text-amber-400 hover:text-amber-300 font-sans font-black flex items-center gap-1 hover:underline text-[10px] bg-slate-900 px-2 py-1 rounded border border-slate-800"
+                                >
+                                  📄 {tx.proofFileName} (Descarregar / Abrir)
+                                </a>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -1461,15 +1536,31 @@ export default function AdminPanel() {
                           <div className="flex gap-2">
                             <button
                               id={`approve-tx-${tx.id}`}
-                              onClick={() => adminApproveTransaction(tx.id)}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg px-4 py-2 flex items-center gap-1 active:translate-y-0.5 transition-all"
+                              onClick={() => {
+                                adminApproveTransaction(tx.id)
+                                  .then(() => {
+                                    setSuccessToast(`Transação ${tx.id} de ${formatKz(tx.amount)} aprovada com sucesso!`);
+                                  })
+                                  .catch(err => {
+                                    setErrorToast(`Erro ao aprovar transação: ${err.message || err}`);
+                                  });
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg px-4 py-2 flex items-center gap-1 active:translate-y-0.5 transition-all cursor-pointer"
                             >
                               <CheckCircle2 size={13} /> Aprovar
                             </button>
                             <button
                               id={`reject-tx-${tx.id}`}
-                              onClick={() => adminRejectTransaction(tx.id)}
-                              className="bg-transparent border border-red-550 hover:bg-red-500 hover:text-white text-red-400 font-bold text-xs rounded-lg px-3 py-2 flex items-center gap-1 active:translate-y-0.5 transition-all"
+                              onClick={() => {
+                                adminRejectTransaction(tx.id)
+                                  .then(() => {
+                                    setSuccessToast(`Transação ${tx.id} de ${formatKz(tx.amount)} rejeitada com sucesso!`);
+                                  })
+                                  .catch(err => {
+                                    setErrorToast(`Erro ao rejeitar transação: ${err.message || err}`);
+                                  });
+                              }}
+                              className="bg-transparent border border-red-550 hover:bg-red-500 hover:text-white text-red-400 font-bold text-xs rounded-lg px-3 py-2 flex items-center gap-1 active:translate-y-0.5 transition-all cursor-pointer"
                             >
                               <XCircle size={13} /> Rejeitar
                             </button>
@@ -1580,6 +1671,15 @@ export default function AdminPanel() {
                           <td className="p-3.5 text-left font-sans">
                             <p className="text-[10px] text-amber-500 font-mono font-bold uppercase">{tx.proofNumber || 'Multicaixa'}</p>
                             <p className="text-[9px] text-slate-500 mt-0.5">{tx.paymentMethod}</p>
+                            {tx.proofFileName && (
+                              <a
+                                href={tx.proofFileBase64}
+                                download={tx.proofFileName}
+                                className="text-sky-400 hover:text-sky-300 font-sans font-black flex items-center gap-1 hover:underline text-[9px] mt-1 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800/40 w-max"
+                              >
+                                📄 {tx.proofFileName}
+                              </a>
+                            )}
                           </td>
                           <td className={`p-3.5 text-right font-bold text-sm ${tx.type === 'DEPOSIT' ? 'text-emerald-400' : 'text-red-400'}`}>
                             {tx.type === 'DEPOSIT' ? '+' : '-'}{formatKz(tx.amount)}

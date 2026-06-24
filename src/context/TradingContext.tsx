@@ -46,7 +46,7 @@ interface TradingContextType {
   switchDemoMode: (isDemo: boolean) => void;
   
   // User activities
-  requestDeposit: (amount: number, ibanOrPhone: string, method: string) => void;
+  requestDeposit: (amount: number, ibanOrPhone: string, method: string, proofFileName?: string, proofFileBase64?: string) => void;
   requestWithdrawal: (amount: number, ibanOrPhone: string, method: string) => boolean;
   openSpotTrade: (assetId: string, type: 'BUY' | 'SELL', quantity: number) => boolean;
   closeSpotTrade: (tradeId: string) => void;
@@ -56,8 +56,8 @@ interface TradingContextType {
   adminAdjustUserWinProbability: (userId: string, prob: 10 | 40 | 60 | 100, isDemo?: boolean) => void;
   adminAdjustUserBalance: (userId: string, newBalance: number, isDemo: boolean) => void;
   adminToggleUserBlock: (userId: string) => void;
-  adminApproveTransaction: (txId: string) => void;
-  adminRejectTransaction: (txId: string) => void;
+  adminApproveTransaction: (txId: string) => Promise<void>;
+  adminRejectTransaction: (txId: string) => Promise<void>;
   adminCreateAsset: (asset: Omit<Asset, 'id' | 'history' | 'changePercent' | 'previousPrice'>) => void;
   adminUpdateAssetPrice: (assetId: string, price: number) => void;
   adminDeleteAsset: (assetId: string) => void;
@@ -959,7 +959,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser, logAction]);
 
   // Deposits & Withdrawals - writes to Firestore
-  const requestDeposit = useCallback((amount: number, ibanOrPhone: string, method: string) => {
+  const requestDeposit = useCallback((amount: number, ibanOrPhone: string, method: string, proofFileName?: string, proofFileBase64?: string) => {
     if (!currentUser) return;
     if (amount < 1000 || amount > 5000000) return; // limits
     
@@ -976,7 +976,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       date: new Date().toISOString(),
       paymentMethod: method,
       ibanOrPhone,
-      proofNumber: `REF-${Math.floor(10000000 + Math.random() * 90000000)}`
+      proofNumber: `REF-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      proofFileName,
+      proofFileBase64
     };
 
     setDoc(doc(db, 'transactions', txId), newTx)
@@ -1449,52 +1451,59 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
   }, [logAction]);
 
-  const adminApproveTransaction = useCallback((txId: string) => {
+  const adminApproveTransaction = useCallback(async (txId: string) => {
     const tx = transactionsRef.current.find(t => t.id === txId && t.status === 'PENDING');
-    if (!tx) return;
+    if (!tx) {
+      throw new Error(`Transação ${txId} não encontrada ou já foi processada.`);
+    }
 
-    const targetUser = usersRef.current.find(u => u.id === tx.userId);
-    if (targetUser) {
-      let addition = tx.amount;
-      if (tx.type === 'WITHDRAW') {
-        addition = 0;
+    const targetUser = usersRef.current.find(u => u.id === tx.userId || u.email.toLowerCase() === tx.userEmail.toLowerCase());
+    if (!targetUser) {
+      throw new Error(`Utilizador associado à transação (${tx.userName || tx.userEmail}) não foi encontrado na base de dados.`);
+    }
+
+    let addition = tx.amount;
+    if (tx.type === 'WITHDRAW') {
+      addition = 0;
+    }
+
+    try {
+      if (tx.type === 'DEPOSIT') {
+        await updateDoc(doc(db, 'users', targetUser.id), {
+          balance: targetUser.balance + addition
+        });
       }
-      
-      updateDoc(doc(db, 'users', targetUser.id), {
-        balance: tx.type === 'DEPOSIT' ? targetUser.balance + addition : targetUser.balance
-      }).then(() => {
-        updateDoc(doc(db, 'transactions', txId), { status: 'APPROVED' })
-          .then(() => {
-            logAction('ADMIN_APROVAR_TRANSACAO', `Administrador aprovou transação ${tx.type} com ID ${txId} de ${tx.amount} AOA para ${targetUser.name}`);
-          })
-          .catch(err => handleFirestoreError(err, OperationType.UPDATE, `transactions/${txId}`));
-      }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${targetUser.id}`));
+      await updateDoc(doc(db, 'transactions', txId), { status: 'APPROVED' });
+      await logAction('ADMIN_APROVAR_TRANSACAO', `Administrador aprovou transação ${tx.type} com ID ${txId} de ${tx.amount} AOA para ${targetUser.name}`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `transactions/${txId}`);
     }
   }, [logAction]);
 
-  const adminRejectTransaction = useCallback((txId: string) => {
+  const adminRejectTransaction = useCallback(async (txId: string) => {
     const tx = transactionsRef.current.find(t => t.id === txId && t.status === 'PENDING');
-    if (!tx) return;
+    if (!tx) {
+      throw new Error(`Transação ${txId} não encontrada ou já foi processada.`);
+    }
 
-    if (tx.type === 'WITHDRAW') {
-      const targetUser = usersRef.current.find(u => u.id === tx.userId);
-      if (targetUser) {
-        updateDoc(doc(db, 'users', targetUser.id), {
+    const targetUser = usersRef.current.find(u => u.id === tx.userId || u.email.toLowerCase() === tx.userEmail.toLowerCase());
+
+    try {
+      if (tx.type === 'WITHDRAW') {
+        if (!targetUser) {
+          throw new Error(`Utilizador associado ao levantamento não foi encontrado para devolução do saldo.`);
+        }
+        await updateDoc(doc(db, 'users', targetUser.id), {
           balance: targetUser.balance + tx.amount
-        }).then(() => {
-          updateDoc(doc(db, 'transactions', txId), { status: 'REJECTED' })
-            .then(() => {
-              logAction('ADMIN_REJEITAR_TRANSACAO', `Administrador rejeitou levantamento com ID ${txId} de ${tx.amount} AOA para ${targetUser.name} (Saldo devolvido)`);
-            })
-            .catch(err => handleFirestoreError(err, OperationType.UPDATE, `transactions/${txId}`));
-        }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${targetUser.id}`));
+        });
+        await updateDoc(doc(db, 'transactions', txId), { status: 'REJECTED' });
+        await logAction('ADMIN_REJEITAR_TRANSACAO', `Administrador rejeitou levantamento com ID ${txId} de ${tx.amount} AOA para ${targetUser.name} (Saldo devolvido)`);
+      } else {
+        await updateDoc(doc(db, 'transactions', txId), { status: 'REJECTED' });
+        await logAction('ADMIN_REJEITAR_TRANSACAO', `Administrador rejeitou depósito com ID ${txId} de ${tx.amount} AOA`);
       }
-    } else {
-      updateDoc(doc(db, 'transactions', txId), { status: 'REJECTED' })
-        .then(() => {
-          logAction('ADMIN_REJEITAR_TRANSACAO', `Administrador rejeitou depósito com ID ${txId} de ${tx.amount} AOA`);
-        })
-        .catch(err => handleFirestoreError(err, OperationType.UPDATE, `transactions/${txId}`));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `transactions/${txId}`);
     }
   }, [logAction]);
 

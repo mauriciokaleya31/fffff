@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTrading } from '../context/TradingContext';
-import { Landmark, ArrowUpRight, ArrowDownRight, Send, Receipt, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Landmark, ArrowUpRight, ArrowDownRight, Send, Receipt, CheckCircle, AlertTriangle, Copy, FileText, Check, Upload, Mail } from 'lucide-react';
 import { formatKz } from '../utils';
 
 export default function KwanzaWallet() {
@@ -20,6 +20,14 @@ export default function KwanzaWallet() {
   const [depIban, setDepIban] = useState('AO06.0000.0000.0000.0000.0000.0');
   const [targetBank, setTargetBank] = useState('Standard Bank S.A.');
   
+  // New customized deposit state fields
+  const [customEmail, setCustomEmail] = useState(currentUser?.email || '');
+  const [proofFileName, setProofFileName] = useState('');
+  const [proofFileBase64, setProofFileBase64] = useState('');
+  const [copiedEntidade, setCopiedEntidade] = useState(false);
+  const [copiedReferencia, setCopiedReferencia] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
   // Withdraw state
   const [withAmount, setWithAmount] = useState(5000);
   const [withMethod, setWithMethod] = useState('IBAN Bancário');
@@ -28,6 +36,41 @@ export default function KwanzaWallet() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   if (!currentUser) return null;
+
+  const handleCopy = (text: string, type: 'entidade' | 'referencia') => {
+    navigator.clipboard.writeText(text);
+    if (type === 'entidade') {
+      setCopiedEntidade(true);
+      setTimeout(() => setCopiedEntidade(false), 2000);
+    } else {
+      setCopiedReferencia(true);
+      setTimeout(() => setCopiedReferencia(false), 2000);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'O ficheiro selecionado excede o tamanho máximo de 3 MB.' });
+      return;
+    }
+
+    setProofFileName(file.name);
+    setIsUploading(true);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProofFileBase64(reader.result as string);
+      setIsUploading(false);
+    };
+    reader.onerror = () => {
+      setMessage({ type: 'error', text: 'Erro ao ler o ficheiro.' });
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,16 +82,33 @@ export default function KwanzaWallet() {
       setMessage({ type: 'error', text: 'O valor máximo permitido por depósito é de 50.000,00 Kz.' });
       return;
     }
+    if (!proofFileBase64) {
+      setMessage({ type: 'error', text: 'Por favor, envie o comprovativo de pagamento.' });
+      return;
+    }
     
-    requestDeposit(depAmount, depIban, `${depMethod} (${targetBank})`);
+    // Send to Firestore
+    requestDeposit(
+      depAmount, 
+      currentUser.email, 
+      'Pagamento por Referência (Multicaixa)', 
+      proofFileName, 
+      proofFileBase64
+    );
+
     setMessage({ 
       type: 'success', 
-      text: `Pedido de depósito de ${formatKz(depAmount)} enviado! Aguarde aprovação do Admin.` 
+      text: `Obrigado! A sua solicitação de recarga de ${formatKz(depAmount)} foi recebida com sucesso. O valor será creditado após a validação do comprovativo.` 
     });
     
+    // Redirect to history tab to show the pending deposit list
+    setWalletTab('history');
+
     // reset form
     setDepAmount(10000);
-    setTimeout(() => setMessage(null), 5000);
+    setProofFileName('');
+    setProofFileBase64('');
+    setTimeout(() => setMessage(null), 8000);
   };
 
   const handleWithdrawalSubmit = (e: React.FormEvent) => {
@@ -171,89 +231,152 @@ export default function KwanzaWallet() {
 
         {/* TAB 1: DEPOSIT FROM MULTICAIXA OR LOCAL WATERFALL */}
         {walletTab === 'deposit' && (
-          <form onSubmit={handleDepositSubmit} className="space-y-4">
-            <h4 className="font-display font-bold text-sm text-white mb-2">Simular Depósito de Kwanzas</h4>
-            <p className="text-xs text-slate-400 mb-4">
-              Transfira para as contas parceiras da KzOption e anexe o número do comprovativo para processamento imediato pelo administrador.
-            </p>
+          <form onSubmit={handleDepositSubmit} className="space-y-4 text-slate-300">
+            {/* Instruções de carregamento */}
+            <div className="bg-slate-950/60 rounded-xl border border-slate-800 p-4 space-y-2.5">
+              <h4 className="font-display font-extrabold text-xs uppercase tracking-wider text-amber-500">
+                Instruções de carregamento
+              </h4>
+              <ol className="text-[11px] space-y-1.5 list-decimal list-inside text-slate-400 font-medium">
+                <li>Abra o aplicativo <span className="text-white font-semibold">Multicaixa Express</span>.</li>
+                <li>Copie os dados fornecidos abaixo.</li>
+                <li>Conclua o pagamento do valor.</li>
+                <li>Envie o comprovativo apenas em <span className="text-white font-semibold">PDF ou Foto</span>.</li>
+                <li>Aguarde de <span className="text-amber-400 font-semibold">5 a 10 minutos</span> para confirmação.</li>
+              </ol>
+            </div>
 
+            {/* Valor para carregar */}
             <div>
-              <div className="flex justify-between items-center mb-1.5 gap-1.5 flex-wrap sm:flex-nowrap">
-                <label htmlFor="deposit-amount" className="text-[10px] text-slate-500 uppercase tracking-wider font-bold whitespace-nowrap">
-                  Valor para Depositar
+              <div className="flex justify-between items-center mb-1.5 gap-1.5 flex-wrap">
+                <label htmlFor="deposit-amount" className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
+                  Valor para carregar
                 </label>
-                <span className="text-[9px] text-slate-500 font-mono whitespace-nowrap">
+                <span className="text-[9px] text-slate-500 font-mono">
                   Limites: 1.000 Kz - 50.000 Kz
                 </span>
               </div>
-              <input
-                id="deposit-amount"
-                type="number"
-                min="1000"
-                max="50000"
-                step="500"
-                value={depAmount}
-                onChange={(e) => setDepAmount(parseInt(e.target.value) || 0)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 px-4 text-xs font-mono text-white focus:outline-none focus:border-amber-500"
-                required
-              />
+              <div className="relative">
+                <input
+                  id="deposit-amount"
+                  type="number"
+                  min="1000"
+                  max="50000"
+                  step="500"
+                  value={depAmount}
+                  onChange={(e) => setDepAmount(parseInt(e.target.value) || 0)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 px-4 pr-10 text-xs font-mono text-white focus:outline-none focus:border-amber-500 placeholder-slate-650"
+                  placeholder="Digite o valor em Kz"
+                  required
+                />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold font-mono text-slate-500">
+                  Kz
+                </span>
+              </div>
             </div>
 
-            <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1.5">
-                Banco de Destino ({platformConfig.logoText || "KzOption"} Partner)
+            {/* Dados de Referência */}
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 space-y-3">
+              <span className="text-[9px] uppercase tracking-wider font-bold text-slate-500 block">
+                Pagamento por Referência
+              </span>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-xs">
+                {/* Entidade */}
+                <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-lg flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Entidade</p>
+                    <p className="text-white font-black text-sm mt-0.5">00930</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('00930', 'entidade')}
+                    className="p-1.5 rounded-md bg-slate-950 hover:bg-slate-850 text-slate-400 hover:text-white border border-slate-800 transition-all cursor-pointer flex items-center gap-1.5 text-[9px] font-sans font-bold"
+                  >
+                    {copiedEntidade ? (
+                      <>
+                        <Check size={11} className="text-emerald-500" />
+                        <span>Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={11} />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Referência */}
+                <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-lg flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Referência</p>
+                    <p className="text-white font-black text-sm mt-0.5">929852534</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('929852534', 'referencia')}
+                    className="p-1.5 rounded-md bg-slate-950 hover:bg-slate-850 text-slate-400 hover:text-white border border-slate-800 transition-all cursor-pointer flex items-center gap-1.5 text-[9px] font-sans font-bold"
+                  >
+                    {copiedReferencia ? (
+                      <>
+                        <Check size={11} className="text-emerald-500" />
+                        <span>Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={11} />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Comprovativo de Pagamento */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">
+                Comprovativo de Pagamento
               </label>
-              <select
-                id="deposit-bank-select"
-                value={targetBank}
-                onChange={(e) => setTargetBank(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 px-4 text-xs text-white focus:outline-none focus:border-amber-500"
-              >
-                <option value="Standard Bank">Standard Bank S.A.</option>
-                <option value="Sol Bank">Sol Bank & Investimentos</option>
-                <option value="Comercial">Banco Comercial Internacional</option>
-                <option value="Digital">Kz Digital Wallet Partner</option>
-              </select>
+              
+              <div className="border border-dashed border-slate-800 hover:border-slate-700 bg-slate-950/40 rounded-xl p-4 text-center relative transition-all">
+                <input
+                  id="proof-upload"
+                  type="file"
+                  accept="application/pdf,image/*"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div className="flex flex-col items-center justify-center space-y-1.5 pointer-events-none">
+                  {proofFileName ? (
+                    <>
+                      <FileText size={24} className="text-amber-500 animate-bounce" />
+                      <p className="text-xs text-white font-mono font-bold truncate max-w-xs">{proofFileName}</p>
+                      <p className="text-[9px] text-emerald-400 font-bold flex items-center gap-1">
+                        <Check size={12} /> Ficheiro carregado com sucesso
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={22} className="text-slate-500" />
+                      <p className="text-xs text-slate-300 font-semibold">Envie apenas arquivos PDF ou Imagem</p>
+                      <p className="text-[9px] text-slate-500 font-medium">Arraste ou clique para selecionar (máx. 3 MB)</p>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1.5">
-                Método de Depósito Utilizado
-              </label>
-              <select
-                id="deposit-method-select"
-                value={depMethod}
-                onChange={(e) => setDepMethod(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 px-4 text-xs text-white focus:outline-none focus:border-amber-500"
-              >
-                <option value="Transferência Multicaixa">Transferência Multicaixa (ATM)</option>
-                <option value="Multicaixa Express">Multicaixa Express (Telemóvel)</option>
-                <option value="Depósito ao Balcão">Depósito Direto ao Balcão</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1.5">
-                O Seu IBAN ou Telefone para Verificação
-              </label>
-              <input
-                id="deposit-iban"
-                type="text"
-                value={depIban}
-                onChange={(e) => setDepIban(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2.5 px-4 text-xs font-mono text-white focus:outline-none focus:border-amber-500"
-                placeholder="AO06.0000.0000.0000.0000.0000.0"
-                required
-              />
-            </div>
-
+            {/* Submit Button */}
             <button
               id="submit-deposit-btn"
               type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-lg active:translate-y-0.5 transition-all mt-3"
+              disabled={isUploading}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-display font-black py-3 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-lg active:translate-y-0.5 transition-all mt-4 cursor-pointer"
             >
               <Send size={14} />
-              Enviar Comprovativo de Depósito
+              {isUploading ? 'A ler ficheiro...' : 'Enviar Solicitação'}
             </button>
           </form>
         )}

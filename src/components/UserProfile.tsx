@@ -16,7 +16,10 @@ import {
   Edit3, 
   BadgeHelp,
   ArrowLeft,
-  MessageCircle
+  MessageCircle,
+  LogOut,
+  Wallet,
+  Settings
 } from 'lucide-react';
 
 export default function UserProfile() {
@@ -24,7 +27,9 @@ export default function UserProfile() {
     currentUser, 
     updateProfileBasicData, 
     submitVerification,
-    setActiveView
+    setActiveView,
+    logout,
+    switchDemoMode
   } = useTrading();
 
   if (!currentUser) return null;
@@ -299,6 +304,7 @@ export default function UserProfile() {
           <div>{errorMsg}</div>
         </div>
       )}
+
 
       {/* Compliance Callout based on Status */}
       {currentUser.verificationStatus === 'APPROVED' && (

@@ -12,7 +12,7 @@ import UserProfile from './components/UserProfile';
 import EmailVerificationGate from './components/EmailVerificationGate';
 import SupportChat from './components/SupportChat';
 import { auth } from './lib/firebase';
-import { Sparkles, ArrowRightLeft, Landmark, Coins, History, User, Wallet, TrendingUp, Shield, MessageCircle } from 'lucide-react';
+import { Sparkles, ArrowRightLeft, Landmark, Coins, History, User, Wallet, TrendingUp, Shield, MessageCircle, LogOut } from 'lucide-react';
 import { formatKz } from './utils';
 
 function DashboardContent() {
@@ -25,6 +25,7 @@ function DashboardContent() {
     setActiveView,
     setWalletTab,
     switchDemoMode,
+    logout,
     platformConfig,
     onlineUsersCount 
   } = useTrading();
@@ -203,7 +204,7 @@ function DashboardContent() {
       <Navbar />
 
       {/* Mobile-First Custom Compact Header */}
-      <div className="lg:hidden sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-900 px-4 py-3.5 flex items-center justify-between select-none shadow-lg">
+      <div className="lg:hidden sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-900 px-4 py-3.5 flex items-center justify-between shadow-lg">
         {/* Left Side Brand info */}
         <div className="flex items-center gap-2">
           {platformConfig.logoUrl ? (
@@ -228,23 +229,23 @@ function DashboardContent() {
         </div>
 
         {/* Center Account Selector Pill */}
-        <div className="flex items-center bg-slate-900/90 rounded-full p-0.5 border border-slate-800">
+        <div className="flex items-center bg-slate-900/90 rounded-full p-1 border border-slate-800">
           <button
             onClick={() => switchDemoMode(true)}
-            className={`text-[9px] font-bold px-2.5 py-1 rounded-full transition-all ${
+            className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
               currentUser.isDemo 
-                ? 'bg-amber-500 text-slate-950 shadow-sm font-extrabold' 
-                : 'text-slate-500 hover:text-slate-300'
+                ? 'bg-amber-500 text-slate-950 shadow-sm font-black scale-105' 
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Demo
           </button>
           <button
             onClick={() => switchDemoMode(false)}
-            className={`text-[9px] font-bold px-2.5 py-1 rounded-full transition-all ${
+            className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
               !currentUser.isDemo 
-                ? 'bg-emerald-600 text-white shadow-sm font-extrabold' 
-                : 'text-slate-500 hover:text-slate-300'
+                ? 'bg-emerald-600 text-white shadow-sm font-black scale-105' 
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Real
@@ -252,7 +253,7 @@ function DashboardContent() {
         </div>
 
         {/* Right Balance and Admin badge */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div className="text-right">
             <p className="text-[7px] uppercase tracking-wider text-slate-500 font-semibold">
               {currentUser.isDemo ? 'Saldo Demo' : 'Saldo Real'}
@@ -265,26 +266,28 @@ function DashboardContent() {
           {currentUser.role === 'admin' && (
             <button
               onClick={() => setRoleMode(roleMode === 'admin' ? 'user' : 'admin')}
-              className={`p-1.5 rounded-lg border transition-all ${
+              className={`p-2 rounded-lg border transition-all cursor-pointer ${
                 roleMode === 'admin'
                   ? 'bg-rose-950/40 border-rose-800/60 text-rose-400'
                   : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
               }`}
               title="Alternar Admin/Operador"
             >
-              <Shield size={13} />
+              <Shield size={14} />
             </button>
           )}
 
           {roleMode === 'user' && (
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('open-support-chat'))}
-              className="p-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all flex items-center justify-center shadow-md shadow-amber-500/5"
+              className="p-2 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all flex items-center justify-center shadow-md shadow-amber-500/5 cursor-pointer"
               title="Suporte Técnico / Chat"
             >
-              <MessageCircle size={13} />
+              <MessageCircle size={14} />
             </button>
           )}
+
+
         </div>
       </div>
 

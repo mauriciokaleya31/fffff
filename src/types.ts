@@ -61,6 +61,8 @@ export interface Transaction {
   paymentMethod: string;
   ibanOrPhone: string;
   proofNumber?: string;
+  proofFileName?: string;
+  proofFileBase64?: string;
 }
 
 export interface VerificationData {
