@@ -4,7 +4,11 @@ import { Asset, AssetCategory } from '../types';
 import { Search, Flame, Coins, Droplet, Wheat, Globe, Landmark } from 'lucide-react';
 import { formatKzNum } from '../utils';
 
-export default function AssetFeed() {
+interface AssetFeedProps {
+  onSelect?: () => void;
+}
+
+export default function AssetFeed({ onSelect }: AssetFeedProps = {}) {
   const { assets, activeAsset, setActiveAssetId } = useTrading();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<AssetCategory | 'all'>('all');
@@ -115,7 +119,10 @@ export default function AssetFeed() {
               <button
                 key={asset.id}
                 id={`feed-card-${asset.id}`}
-                onClick={() => setActiveAssetId(asset.id)}
+                onClick={() => {
+                  setActiveAssetId(asset.id);
+                  if (onSelect) onSelect();
+                }}
                 className={`w-full text-left p-3 rounded-xl flex items-center justify-between transition-all ${
                   isActive 
                     ? 'bg-slate-800/80 border border-slate-700 shadow-md shadow-slate-950' 

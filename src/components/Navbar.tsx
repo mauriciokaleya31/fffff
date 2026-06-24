@@ -1,5 +1,5 @@
 import { useTrading } from '../context/TradingContext';
-import { Shield, User, Wallet, LogOut, Code, Globe2, ArrowRightLeft, Receipt, Volume2, VolumeX } from 'lucide-react';
+import { Shield, User, Wallet, LogOut, Code, Globe2, ArrowRightLeft, Receipt, Volume2, VolumeX, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { formatKz } from '../utils';
 import { playSound } from '../lib/audio';
@@ -27,7 +27,7 @@ export default function Navbar() {
   const currentBalance = currentUser.isDemo ? currentUser.demoBalance : currentUser.balance;
 
   return (
-    <nav className="bg-slate-900 border-b border-slate-800 px-6 py-4 sticky top-0 z-40">
+    <nav className="hidden lg:block bg-slate-900 border-b border-slate-800 px-6 py-4 sticky top-0 z-40">
       <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         
         {/* Left: Brand Identity & Nav buttons */}
@@ -207,6 +207,16 @@ export default function Navbar() {
                 title={roleMode === 'admin' ? "Alternar para Vista Comercial" : "Alternar para Painel Principal"}
               >
                 <Shield size={16} />
+              </button>
+            )}
+            {currentUser.role === 'user' && (
+              <button
+                id="toggle-support-chat-btn"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-support-chat'))}
+                className="w-9 h-9 rounded-lg border flex items-center justify-center transition-all bg-slate-950 border-slate-800 text-slate-400 hover:text-amber-400 hover:border-amber-500/30"
+                title="Abrir Chat de Suporte"
+              >
+                <MessageCircle size={16} />
               </button>
             )}
             <button

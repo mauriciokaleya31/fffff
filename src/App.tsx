@@ -12,12 +12,25 @@ import UserProfile from './components/UserProfile';
 import EmailVerificationGate from './components/EmailVerificationGate';
 import SupportChat from './components/SupportChat';
 import { auth } from './lib/firebase';
-import { Sparkles, ArrowRightLeft, Landmark } from 'lucide-react';
+import { Sparkles, ArrowRightLeft, Landmark, Coins, History, User, Wallet, TrendingUp, Shield, MessageCircle } from 'lucide-react';
+import { formatKz } from './utils';
 
 function DashboardContent() {
-  const { currentUser, roleMode, activeAsset, activeView, platformConfig } = useTrading();
+  const { 
+    currentUser, 
+    roleMode, 
+    setRoleMode,
+    activeAsset, 
+    activeView, 
+    setActiveView,
+    setWalletTab,
+    switchDemoMode,
+    platformConfig,
+    onlineUsersCount 
+  } = useTrading();
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [forceLoginAccess, setForceLoginAccess] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'chart' | 'markets' | 'positions'>('chart');
 
   useEffect(() => {
     // Reset backdoor access when current user is logged out or is not an admin
@@ -186,63 +199,253 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
       <Navbar />
 
-      <main className="flex-1 p-4 md:p-6 max-w-[1800px] mx-auto w-full space-y-6">
+      {/* Mobile-First Custom Compact Header */}
+      <div className="lg:hidden sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-900 px-4 py-3.5 flex items-center justify-between select-none shadow-lg">
+        {/* Left Side Brand info */}
+        <div className="flex items-center gap-2">
+          {platformConfig.logoUrl ? (
+            <img 
+              src={platformConfig.logoUrl} 
+              alt={platformConfig.logoText || "Logo"} 
+              className="h-6 max-w-[100px] object-contain rounded"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-6 h-6 bg-gradient-to-tr from-amber-500 via-red-600 to-slate-900 rounded flex items-center justify-center shadow-md">
+              <span className="font-display font-black text-xs text-white">
+                {(platformConfig.logoText || "K").substring(0, 1).toUpperCase()}
+              </span>
+            </div>
+          )}
+          
+          <span className="hidden sm:flex items-center gap-1 text-[8px] bg-slate-900 border border-emerald-500/10 px-1.5 py-0.5 rounded-full text-emerald-400 font-mono scale-90">
+            <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping" />
+            <span>{onlineUsersCount} online</span>
+          </span>
+        </div>
+
+        {/* Center Account Selector Pill */}
+        <div className="flex items-center bg-slate-900/90 rounded-full p-0.5 border border-slate-800">
+          <button
+            onClick={() => switchDemoMode(true)}
+            className={`text-[9px] font-bold px-2.5 py-1 rounded-full transition-all ${
+              currentUser.isDemo 
+                ? 'bg-amber-500 text-slate-950 shadow-sm font-extrabold' 
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            Demo
+          </button>
+          <button
+            onClick={() => switchDemoMode(false)}
+            className={`text-[9px] font-bold px-2.5 py-1 rounded-full transition-all ${
+              !currentUser.isDemo 
+                ? 'bg-emerald-600 text-white shadow-sm font-extrabold' 
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            Real
+          </button>
+        </div>
+
+        {/* Right Balance and Admin badge */}
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <p className="text-[7px] uppercase tracking-wider text-slate-500 font-semibold">
+              {currentUser.isDemo ? 'Saldo Demo' : 'Saldo Real'}
+            </p>
+            <p className={`font-mono font-bold text-xs ${currentUser.isDemo ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {formatKz(currentUser.isDemo ? currentUser.demoBalance : currentUser.balance)}
+            </p>
+          </div>
+
+          {currentUser.role === 'admin' && (
+            <button
+              onClick={() => setRoleMode(roleMode === 'admin' ? 'user' : 'admin')}
+              className={`p-1.5 rounded-lg border transition-all ${
+                roleMode === 'admin'
+                  ? 'bg-rose-950/40 border-rose-800/60 text-rose-400'
+                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+              }`}
+              title="Alternar Admin/Operador"
+            >
+              <Shield size={13} />
+            </button>
+          )}
+
+          {currentUser.role === 'user' && (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('open-support-chat'))}
+              className="p-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all flex items-center justify-center shadow-md shadow-amber-500/5"
+              title="Suporte Técnico / Chat"
+            >
+              <MessageCircle size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <main className="flex-1 p-2 sm:p-4 lg:p-6 max-w-[1800px] mx-auto w-full">
         
         {/* If in Admin view mode and actually an admin */}
         {roleMode === 'admin' && currentUser.role === 'admin' ? (
           <div className="animate-fade-in">
             <AdminPanel />
           </div>
-        ) : activeView === 'wallet' ? (
-          /* Render fully featured, beautiful and spacious KwanzaWallet component */
-          <div className="animate-fade-in max-w-5xl mx-auto w-full">
-            <KwanzaWallet />
-          </div>
-        ) : activeView === 'profile' ? (
-          /* Render fully featured UserProfile component for editing profile and signing contract */
-          <div className="animate-fade-in max-w-5xl mx-auto w-full">
-            <UserProfile />
-          </div>
         ) : (
-          /* If in standard User view mode */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
-            {/* Real-time Assets Feed - Left sidebar: occupies 2 grids out of 12 */}
-            <div className="lg:col-span-2 lg:sticky lg:top-24 col-span-12">
-              <AssetFeed />
+          /* User Mode Views */
+          <>
+            {/* Desktop Layout (Large screen terminal grids) */}
+            <div className="hidden lg:block space-y-6">
+              {activeView === 'wallet' ? (
+                <div className="animate-fade-in max-w-5xl mx-auto w-full">
+                  <KwanzaWallet />
+                </div>
+              ) : activeView === 'profile' ? (
+                <div className="animate-fade-in max-w-5xl mx-auto w-full">
+                  <UserProfile />
+                </div>
+              ) : (
+                <div className="grid grid-cols-12 gap-6 items-start">
+                  {/* Real-time Assets Feed */}
+                  <div className="col-span-2 sticky top-24">
+                    <AssetFeed />
+                  </div>
+
+                  {/* Central Terminal (Charts + Activity) */}
+                  <div className="col-span-7 space-y-6">
+                    <AssetChart asset={activeAsset} />
+                    <ActivityTable />
+                  </div>
+
+                  {/* Trading Workspace Controls */}
+                  <div className="col-span-3 space-y-6 sticky top-24 font-sans">
+                    <TradingForm asset={activeAsset} />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Central Terminal (Charts + Activity) - Center: occupies 7 grids out of 12 */}
-            <div className="lg:col-span-7 col-span-12 space-y-6">
-              
-              {/* Central Chart Display */}
-              <AssetChart asset={activeAsset} />
-              
-              {/* Activity Lists (Open Positions & Histories) */}
-              <ActivityTable />
-              
+            {/* Mobile Layout (Optimized, single-focus screens) */}
+            <div className="lg:hidden">
+              {activeView === 'wallet' ? (
+                <div className="animate-fade-in w-full pb-20">
+                  <KwanzaWallet />
+                </div>
+              ) : activeView === 'profile' ? (
+                <div className="animate-fade-in w-full pb-20">
+                  <UserProfile />
+                </div>
+              ) : (
+                <div className="space-y-4 pb-20">
+                  {mobileTab === 'chart' && (
+                    <div className="space-y-4 animate-fade-in">
+                      <AssetChart asset={activeAsset} />
+                      <TradingForm asset={activeAsset} />
+                    </div>
+                  )}
+                  {mobileTab === 'markets' && (
+                    <div className="animate-fade-in">
+                      <AssetFeed onSelect={() => setMobileTab('chart')} />
+                    </div>
+                  )}
+                  {mobileTab === 'positions' && (
+                    <div className="animate-fade-in">
+                      <ActivityTable />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-
-            {/* Trading Workspace Controls (Form) - Right sidebar: occupies 3 grids */}
-            <div className="lg:col-span-3 col-span-12 space-y-6 lg:sticky lg:top-24 font-sans">
-              
-              {/* Quick Transaction Executor Form */}
-              <TradingForm asset={activeAsset} />
-              
-            </div>
-
-          </div>
+          </>
         )}
 
       </main>
 
       <SupportChat />
 
+      {/* Floating frosted-glass Mobile Bottom Tab Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-md border-t border-slate-900 px-2 py-2 flex justify-around items-center select-none shadow-2xl">
+        <button
+          onClick={() => {
+            setMobileTab('chart');
+            setActiveView('trade');
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
+            mobileTab === 'chart' && activeView === 'trade'
+              ? 'text-amber-500 font-bold'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <TrendingUp size={18} className={mobileTab === 'chart' && activeView === 'trade' ? 'stroke-[2.5px] text-amber-500' : ''} />
+          <span className="text-[9px] font-medium">Gráfico</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setMobileTab('markets');
+            setActiveView('trade');
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
+            mobileTab === 'markets' && activeView === 'trade'
+              ? 'text-amber-500 font-bold'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <Coins size={18} className={mobileTab === 'markets' && activeView === 'trade' ? 'stroke-[2.5px] text-amber-500' : ''} />
+          <span className="text-[9px] font-medium">Mercados</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setMobileTab('positions');
+            setActiveView('trade');
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
+            mobileTab === 'positions' && activeView === 'trade'
+              ? 'text-amber-500 font-bold'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <History size={18} className={mobileTab === 'positions' && activeView === 'trade' ? 'stroke-[2.5px] text-amber-500' : ''} />
+          <span className="text-[9px] font-medium">Posições</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveView('wallet');
+            setWalletTab('deposit');
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
+            activeView === 'wallet'
+              ? 'text-amber-500 font-bold'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <Wallet size={18} className={activeView === 'wallet' ? 'stroke-[2.5px] text-amber-500' : ''} />
+          <span className="text-[9px] font-medium">Carteira</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveView('profile');
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
+            activeView === 'profile'
+              ? 'text-amber-500 font-bold'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <User size={18} className={activeView === 'profile' ? 'stroke-[2.5px] text-amber-500' : ''} />
+          <span className="text-[9px] font-medium">Perfil</span>
+        </button>
+      </div>
+
       {/* High aesthetic footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-6 mt-12 text-xs text-slate-500">
+      <footer className="hidden lg:block border-t border-slate-900 bg-slate-950 py-6 mt-12 text-xs text-slate-500">
         <div className="max-w-[1800px] mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="font-display font-semibold text-white">KzOption</span>

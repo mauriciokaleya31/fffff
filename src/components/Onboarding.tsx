@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTrading } from '../context/TradingContext';
-import { ArrowRight, ArrowLeft, Shield, User, Mail, Sparkles, Lock, Loader2, Key, Sliders, Activity } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Shield, User, Mail, Sparkles, Lock, Loader2, Key, Sliders, Activity, X, MessageCircle } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { sendEmailVerification } from 'firebase/auth';
 import { formatKz } from '../utils';
@@ -44,6 +44,7 @@ export default function Onboarding() {
 
   // Auth Overlay state
   const [showAuthOverlay, setShowAuthOverlay] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
 
   const getReadableError = (err: any): string => {
     if (!err) return 'Ocorreu um erro desconhecido.';
@@ -338,6 +339,12 @@ export default function Onboarding() {
             <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-400">
               <a href="#simulador" className="hover:text-white transition-all">Praticar Simulador</a>
               <a href="#vantagens" className="hover:text-white transition-all">Vantagens</a>
+              <button
+                onClick={() => setShowSupportModal(true)}
+                className="hover:text-white transition-all cursor-pointer bg-transparent border-none font-semibold text-xs text-slate-400 p-0"
+              >
+                Apoio & Suporte
+              </button>
               {platformConfig.communityLink && (
                 <a href={platformConfig.communityLink} target="_blank" rel="noopener noreferrer" className="hover:text-amber-400 text-amber-500 font-bold transition-all flex items-center gap-1">
                   Comunidade Telegram
@@ -982,6 +989,95 @@ export default function Onboarding() {
               Se não encontrar a mensagem da {platformConfig.logoText || "KzOption"} em alguns segundos, por favor certifique-se de verificar a sua pasta de Correio Não Desejado (Spam).
             </p>
 
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING SUPPORT BUTTON FOR VISITOR */}
+      <button
+        onClick={() => setShowSupportModal(true)}
+        className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 w-11 h-11 sm:w-14 sm:h-14 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.5)] transition-all transform hover:scale-110 active:scale-95 duration-300 cursor-pointer"
+        title="Apoio & Suporte"
+      >
+        <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950" />
+      </button>
+
+      {/* SUPPORT MODAL OVERLAY */}
+      {showSupportModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md animate-fade-in select-text">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative text-left">
+            <button
+              onClick={() => setShowSupportModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition"
+              title="Fechar"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="space-y-2">
+              <h3 className="font-display font-extrabold text-xl text-white tracking-tight flex items-center gap-2">
+                <MessageCircle size={22} className="text-amber-500" />
+                Central de Apoio ao Cliente
+              </h3>
+              <p className="text-slate-400 text-xs leading-relaxed">
+                Estamos aqui para ajudar com qualquer dúvida sobre a nossa plataforma, depósitos ou o seu cadastro operacional em Angola.
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              {/* Internal Chat Row */}
+              <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
+                    <MessageCircle size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Chat de Suporte Interno</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Disponível em tempo real diretamente dentro do painel para todos os investidores registados.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSupportModal(false);
+                    setIsLogin(true);
+                    setShowAuthOverlay(true);
+                  }}
+                  className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  Entrar para Iniciar Chat
+                </button>
+              </div>
+
+              {/* Direct Support Contacts */}
+              <div className="border border-slate-800 rounded-2xl p-4 space-y-3 text-xs">
+                <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
+                  <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">WhatsApp Comercial:</span>
+                  <a href="https://wa.me/244923000000" target="_blank" rel="noopener noreferrer" className="font-mono text-amber-500 font-bold hover:underline">
+                    +244 923 000 000
+                  </a>
+                </div>
+                {platformConfig.communityLink && (
+                  <div className="flex justify-between items-center py-1 border-b border-slate-800/60">
+                    <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Canal Telegram:</span>
+                    <a href={platformConfig.communityLink} target="_blank" rel="noopener noreferrer" className="text-amber-500 font-bold hover:underline">
+                      Comunidade Oficial
+                    </a>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">E-mail de Suporte:</span>
+                  <a href="mailto:suporte@kzoption.com" className="font-mono text-amber-500 font-bold hover:underline">
+                    suporte@kzoption.com
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-500 text-center leading-relaxed">
+              O horário de atendimento padrão é de segunda a sexta, das 08h00 às 18h00 (Hora de Angola).
+            </p>
           </div>
         </div>
       )}

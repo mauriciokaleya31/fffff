@@ -69,6 +69,17 @@ export default function SupportChat() {
     prevLengthRef.current = userMessages.length;
   }, [userMessages, isOpen, currentUser.id]);
 
+  // Listen to open-support-chat event to open the chat window from external buttons
+  useEffect(() => {
+    const handleOpenSupport = () => {
+      setIsOpen(true);
+    };
+    window.addEventListener('open-support-chat', handleOpenSupport);
+    return () => {
+      window.removeEventListener('open-support-chat', handleOpenSupport);
+    };
+  }, []);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || !isServiceOpen) return;
@@ -83,25 +94,25 @@ export default function SupportChat() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 select-none">
+    <div className="fixed bottom-[72px] sm:bottom-6 right-4 sm:right-6 z-50 select-none">
       {/* 1. FLOATING CHAT TRIGGER BUTTON */}
       {!isOpen && (
         <button
           id="support-chat-trigger"
           onClick={() => setIsOpen(true)}
-          className="relative group w-14 h-14 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.5)] transition-all transform hover:scale-110 active:scale-95 duration-300"
+          className="relative group w-11 h-11 sm:w-14 sm:h-14 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.5)] transition-all transform hover:scale-110 active:scale-95 duration-300 cursor-pointer"
           title="Fale Connosco / Suporte"
         >
-          <MessageCircle size={26} className="text-slate-950" />
+          <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-slate-950" />
           
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-slate-950 animate-pulse">
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[8px] sm:text-[10px] font-bold text-white border-2 border-slate-950 animate-pulse">
               {unreadCount}
             </span>
           )}
 
           {/* Tooltip hint info */}
-          <span className="absolute right-16 top-1/2 -translate-y-1/2 scale-0 group-hover:scale-100 bg-slate-900 border border-slate-800 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap shadow-xl transition-all pointer-events-none">
+          <span className="hidden sm:inline absolute right-16 top-1/2 -translate-y-1/2 scale-0 group-hover:scale-100 bg-slate-900 border border-slate-800 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap shadow-xl transition-all pointer-events-none">
             Suporte KzOption
           </span>
         </button>

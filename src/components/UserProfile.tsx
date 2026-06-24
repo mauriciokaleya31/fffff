@@ -15,7 +15,8 @@ import {
   Eraser, 
   Edit3, 
   BadgeHelp,
-  ArrowLeft
+  ArrowLeft,
+  MessageCircle
 } from 'lucide-react';
 
 export default function UserProfile() {
@@ -320,6 +321,26 @@ export default function UserProfile() {
           </p>
         </div>
       )}
+
+      {/* Support Chat Referral Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <MessageCircle size={14} className="text-amber-500" />
+            Precisa de Ajuda com a Verificação?
+          </h3>
+          <p className="text-[11px] text-slate-400 max-w-xl leading-relaxed">
+            Se tiver dúvidas sobre como carregar o seu Bilhete de Identidade (BI), tirar a fotografia de selfie, ou necessitar de auxílio com a assinatura digital do contrato de adesão em Angola, inicie um chat com o nosso suporte de compliance.
+          </p>
+        </div>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('open-support-chat'))}
+          className="shrink-0 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-amber-500 hover:text-amber-400 text-[11px] font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2"
+        >
+          <MessageCircle size={13} />
+          Falar com o Suporte
+        </button>
+      </div>
 
       {/* Verification Stepper Flow - HIDDEN if Approved OR Pending */}
       {(currentUser.verificationStatus === 'NOT_SUBMITTED' || currentUser.verificationStatus === 'REJECTED') && (

@@ -14,7 +14,7 @@ import {
   Settings, 
   SlidersHorizontal 
 } from 'lucide-react';
-import { formatKz } from '../utils';
+import { formatKz, formatKzNum, formatCompactKz } from '../utils';
 
 interface AssetChartProps {
   asset: Asset | null;
@@ -32,6 +32,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
   const [showRSI, setShowRSI] = useState(true);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [mouseCoord, setMouseCoord] = useState<{ x: number; y: number } | null>(null);
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
 
   if (!asset) {
     return (
@@ -278,39 +279,39 @@ export default function AssetChart({ asset }: AssetChartProps) {
   }, [points]);
 
   return (
-    <div className="bg-[#09090b] border border-zinc-800 rounded-xl p-4 flex flex-col h-[520px] shadow-2xl relative overflow-hidden transition-all text-xs">
+    <div className="bg-[#09090b] border border-zinc-800 rounded-xl p-4 flex flex-col h-[320px] sm:h-[400px] lg:h-[520px] shadow-2xl relative overflow-hidden transition-all text-xs">
       
       {/* Visual Ambient Grid background glow for space terminal */}
       <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-emerald-500/[0.02] rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[200px] h-[200px] bg-rose-500/[0.02] rounded-full blur-[90px] pointer-events-none" />
 
       {/* Header Info Panel */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4 z-10 pb-3 border-b border-zinc-900">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center font-bold text-emerald-400 font-mono shadow">
+      <div className="flex justify-between items-center gap-3 mb-3 z-10 pb-2 border-b border-zinc-900">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center font-bold text-emerald-400 font-mono shadow shrink-0">
             {asset.symbol.substring(0, 2)}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm tracking-tight text-zinc-100">{asset.name}</span>
-              <span className="px-1.5 py-0.2 font-mono text-[9px] font-extrabold bg-zinc-900 border border-zinc-800 text-zinc-400 rounded">
-                CRYPTO: {asset.symbol}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-xs sm:text-sm tracking-tight text-zinc-100 truncate">{asset.name}</span>
+              <span className="px-1 py-0.2 font-mono text-[8px] sm:text-[9px] font-extrabold bg-zinc-900 border border-zinc-800 text-zinc-400 rounded whitespace-nowrap">
+                {asset.symbol}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] mt-0.5">
-              <span>{asset.description}</span>
+            <div className="text-zinc-500 text-[9px] sm:text-[10px] truncate max-w-[130px] xs:max-w-[200px] sm:max-w-none">
+              {asset.description}
             </div>
           </div>
         </div>
 
-        {/* Action controls button rig */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        {/* Action controls button rig - Desktop Only */}
+        <div className="hidden lg:flex flex-wrap items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap pb-1 md:pb-0">
           {/* Chart selector type */}
           <div className="flex bg-zinc-950 p-1 border border-zinc-850 rounded-lg">
             <button
               onClick={() => setChartType('area')}
               className={`px-2 py-1 rounded text-[10px] font-bold transition-all transition-transform ${
-                chartType === 'area' ? 'bg-zinc-805 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 hover:text-white'
+                chartType === 'area' ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 hover:text-white'
               }`}
               title="Área Neon"
             >
@@ -319,7 +320,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
             <button
               onClick={() => setChartType('candle')}
               className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
-                chartType === 'candle' ? 'bg-zinc-805 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 hover:text-white'
+                chartType === 'candle' ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 hover:text-white'
               }`}
               title="Velas Japonesas"
             >
@@ -328,7 +329,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
             <button
               onClick={() => setChartType('heikin')}
               className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
-                chartType === 'heikin' ? 'bg-zinc-805 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 hover:text-white'
+                chartType === 'heikin' ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 hover:text-white'
               }`}
               title="Heikin Ashi"
             >
@@ -337,7 +338,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
             <button
               onClick={() => setChartType('bars')}
               className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
-                chartType === 'bars' ? 'bg-zinc-805 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 hover:text-white'
+                chartType === 'bars' ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500 hover:text-white'
               }`}
               title="Gráfico de Barras"
             >
@@ -345,7 +346,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
             </button>
           </div>
 
-          {/* Timeframe scaler selection (simulating high-frequency streaming speeds) */}
+          {/* Timeframe scaler selection */}
           <div className="flex bg-zinc-950 p-1 border border-zinc-850 rounded-lg">
             {(['5s', '15s', '1m', '5m', '1h'] as TimeFrame[]).map(tf => (
               <button
@@ -367,7 +368,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
               className={`px-2 py-1 rounded text-[9px] font-bold transition-all flex items-center gap-1 ${
                 showBollinger ? 'bg-emerald-950/25 text-emerald-400 border border-emerald-500/20' : 'text-zinc-600'
               }`}
-              title="Bollinger Bands (Volatility Ranges)"
+              title="Bollinger Bands"
             >
               BB
             </button>
@@ -376,7 +377,7 @@ export default function AssetChart({ asset }: AssetChartProps) {
               className={`px-2 py-1 rounded text-[9px] font-bold transition-all flex items-center gap-1 ${
                 showSMA ? 'bg-amber-950/30 text-amber-500 border border-amber-500/20' : 'text-zinc-600'
               }`}
-              title="Simple Moving Average Trend line"
+              title="Simple Moving Average"
             >
               SMA
             </button>
@@ -385,42 +386,167 @@ export default function AssetChart({ asset }: AssetChartProps) {
               className={`px-2 py-1 rounded text-[9px] font-bold transition-all flex items-center gap-1 ${
                 showRSI ? 'bg-purple-950/30 text-purple-400 border border-purple-500/20' : 'text-zinc-600'
               }`}
-              title="Relative Strength Index Oscillator"
+              title="Relative Strength Index"
             >
               RSI
             </button>
           </div>
         </div>
+
+        {/* Action control trigger for mobile - Compact Menu button */}
+        <div className="flex lg:hidden items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => setShowMobileSettings(!showMobileSettings)}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 rounded-lg text-[10px] font-bold transition-all active:scale-95 shadow-md"
+          >
+            <SlidersHorizontal size={11} className={showMobileSettings ? 'text-emerald-400 rotate-90 transition-transform' : 'text-zinc-400 transition-transform'} />
+            <span>Ajustes</span>
+          </button>
+        </div>
       </div>
 
+      {/* Floating Settings Dropdown card for mobile viewports */}
+      {showMobileSettings && (
+        <div className="lg:hidden absolute top-[50px] left-4 right-4 bg-zinc-950/95 border border-zinc-800 p-3.5 rounded-xl z-30 shadow-2xl space-y-3 animate-fade-in backdrop-blur-md">
+          <div className="flex justify-between items-center pb-1.5 border-b border-zinc-900">
+            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Configuração de Gráficos</span>
+            <button 
+              onClick={() => setShowMobileSettings(false)}
+              className="text-[9px] text-zinc-400 hover:text-white bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
+            >
+              Fechar
+            </button>
+          </div>
+          
+          <div className="space-y-3 text-left">
+            <div>
+              <p className="text-[8px] text-zinc-500 mb-1 uppercase font-bold tracking-wider">Tipo de Exibição</p>
+              <div className="grid grid-cols-4 gap-1 bg-zinc-900 p-1 rounded-lg">
+                <button
+                  onClick={() => { setChartType('area'); setShowMobileSettings(false); }}
+                  className={`py-1 rounded text-[9px] font-bold text-center transition-all ${
+                    chartType === 'area' ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/20' : 'text-zinc-500'
+                  }`}
+                >
+                  Área
+                </button>
+                <button
+                  onClick={() => { setChartType('candle'); setShowMobileSettings(false); }}
+                  className={`py-1 rounded text-[9px] font-bold text-center transition-all ${
+                    chartType === 'candle' ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/20' : 'text-zinc-500'
+                  }`}
+                >
+                  Velas
+                </button>
+                <button
+                  onClick={() => { setChartType('heikin'); setShowMobileSettings(false); }}
+                  className={`py-1 rounded text-[9px] font-bold text-center transition-all ${
+                    chartType === 'heikin' ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/20' : 'text-zinc-500'
+                  }`}
+                >
+                  H-Ashi
+                </button>
+                <button
+                  onClick={() => { setChartType('bars'); setShowMobileSettings(false); }}
+                  className={`py-1 rounded text-[9px] font-bold text-center transition-all ${
+                    chartType === 'bars' ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/20' : 'text-zinc-500'
+                  }`}
+                >
+                  Barras
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[8px] text-zinc-500 mb-1 uppercase font-bold tracking-wider">Período / Tempo de Vela</p>
+              <div className="grid grid-cols-5 gap-1 bg-zinc-900 p-1 rounded-lg">
+                {(['5s', '15s', '1m', '5m', '1h'] as TimeFrame[]).map(tf => (
+                  <button
+                    key={tf}
+                    onClick={() => { setTimeFrame(tf); setShowMobileSettings(false); }}
+                    className={`py-1 rounded text-[9px] font-mono text-center transition-all ${
+                      timeFrame === tf ? 'text-emerald-400 font-extrabold bg-zinc-800' : 'text-zinc-500'
+                    }`}
+                  >
+                    {tf.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[8px] text-zinc-500 mb-1 uppercase font-bold tracking-wider">Sobreposição de Indicadores</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  onClick={() => setShowBollinger(!showBollinger)}
+                  className={`py-1 rounded text-[9px] font-bold transition-all text-center border ${
+                    showBollinger ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20' : 'bg-zinc-900 text-zinc-600 border-transparent'
+                  }`}
+                >
+                  Bollinger
+                </button>
+                <button
+                  onClick={() => setShowSMA(!showSMA)}
+                  className={`py-1 rounded text-[9px] font-bold transition-all text-center border ${
+                    showSMA ? 'bg-amber-950/40 text-amber-500 border-amber-500/20' : 'bg-zinc-900 text-zinc-600 border-transparent'
+                  }`}
+                >
+                  Média SMA
+                </button>
+                <button
+                  onClick={() => setShowRSI(!showRSI)}
+                  className={`py-1 rounded text-[9px] font-bold transition-all text-center border ${
+                    showRSI ? 'bg-purple-950/40 text-purple-400 border-purple-500/20' : 'bg-zinc-900 text-zinc-600 border-transparent'
+                  }`}
+                >
+                  Índice RSI
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Realtime mini tickers overlay bar */}
-      <div className="grid grid-cols-4 gap-2 mb-3 bg-zinc-950/80 rounded-lg p-2 border border-zinc-900/40 divide-x divide-zinc-900">
-        <div className="flex flex-col items-center justify-center">
-          <span className="text-[9px] text-zinc-500 uppercase tracking-tight">Valor de Cotação</span>
+      <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-3 bg-zinc-950/80 rounded-lg p-2 border border-zinc-900/40 divide-x divide-zinc-900">
+        <div className="flex flex-col items-center justify-center text-center">
+          <span className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-tight whitespace-nowrap">
+            <span className="hidden sm:inline">Valor de Cotação</span>
+            <span className="sm:hidden">Preço</span>
+          </span>
           <div className="flex items-center gap-1 mt-0.5">
-            <span className={`font-mono text-xs font-bold ${isLoss ? 'text-rose-500' : 'text-emerald-400'}`}>
-              {formatKz(asset.price)}
+            <span className={`font-mono text-[10px] sm:text-xs font-bold whitespace-nowrap ${isLoss ? 'text-rose-500' : 'text-emerald-400'}`}>
+              {formatKzNum(asset.price)}
             </span>
             {isLoss ? (
-              <TrendingDown size={11} className="text-rose-500 animate-pulse" />
+              <TrendingDown size={10} className="text-rose-500 animate-pulse shrink-0" />
             ) : (
-              <TrendingUp size={11} className="text-emerald-400 animate-pulse" />
+              <TrendingUp size={10} className="text-emerald-400 animate-pulse shrink-0" />
             )}
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center">
-          <span className="text-[9px] text-zinc-500 uppercase">Volatilidade (Δ)</span>
-          <span className={`font-mono text-[10px] font-semibold mt-0.5 ${isLoss ? 'text-rose-500' : 'text-emerald-400'}`}>
+        <div className="flex flex-col items-center justify-center text-center">
+          <span className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-tight whitespace-nowrap">
+            <span className="hidden sm:inline">Volatilidade (Δ)</span>
+            <span className="sm:hidden">Var. %</span>
+          </span>
+          <span className={`font-mono text-[9px] sm:text-[10px] font-semibold mt-0.5 whitespace-nowrap ${isLoss ? 'text-rose-500' : 'text-emerald-400'}`}>
             {isLoss ? '' : '+'}{asset.changePercent.toFixed(2)}%
           </span>
         </div>
-        <div className="flex flex-col items-center justify-center">
-          <span className="text-[9px] text-zinc-500 uppercase">Pico Máximo (24H)</span>
-          <span className="font-mono text-[10px] text-zinc-300 mt-0.5">{formatKz(asset.high)}</span>
+        <div className="flex flex-col items-center justify-center text-center">
+          <span className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-tight whitespace-nowrap">
+            <span className="hidden sm:inline">Pico Máximo (24H)</span>
+            <span className="sm:hidden">Máx (24h)</span>
+          </span>
+          <span className="font-mono text-[9px] sm:text-[10px] text-zinc-300 mt-0.5 whitespace-nowrap">{formatCompactKz(asset.high)}</span>
         </div>
-        <div className="flex flex-col items-center justify-center">
-          <span className="text-[9px] text-zinc-500 uppercase">Pico Mínimo (24H)</span>
-          <span className="font-mono text-[10px] text-zinc-300 mt-0.5">{formatKz(asset.low)}</span>
+        <div className="flex flex-col items-center justify-center text-center">
+          <span className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-tight whitespace-nowrap">
+            <span className="hidden sm:inline">Pico Mínimo (24H)</span>
+            <span className="sm:hidden">Mín (24h)</span>
+          </span>
+          <span className="font-mono text-[9px] sm:text-[10px] text-zinc-300 mt-0.5 whitespace-nowrap">{formatCompactKz(asset.low)}</span>
         </div>
       </div>
 

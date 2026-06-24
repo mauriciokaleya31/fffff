@@ -36,7 +36,7 @@ export default function ActivityTable() {
           <div className="overflow-x-auto select-none rounded-xl border border-slate-800/80 bg-slate-950/20">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-800/60 text-slate-400 font-medium">
+                <tr className="border-b border-slate-800/60 text-slate-400 font-medium whitespace-nowrap">
                   <th className="p-3">Ativo</th>
                   <th className="p-3">Tipo / Modo</th>
                   <th className="p-3">Preço Entrada</th>
@@ -54,7 +54,7 @@ export default function ActivityTable() {
                   const isProfit = trade.profit >= 0;
 
                   return (
-                    <tr key={trade.id} className="hover:bg-slate-800/10 font-mono transition-all">
+                    <tr key={trade.id} className="hover:bg-slate-800/10 font-mono transition-all whitespace-nowrap">
                       <td className="p-3">
                         <div className="font-semibold text-white">{trade.assetSymbol}</div>
                         <div className="text-[10px] text-slate-500">{trade.assetName}</div>
@@ -137,7 +137,7 @@ export default function ActivityTable() {
           <div className="overflow-x-auto select-none rounded-xl border border-slate-800/80 bg-slate-950/20">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-800/60 text-slate-500 font-medium">
+                <tr className="border-b border-slate-800/60 text-slate-500 font-medium whitespace-nowrap">
                   <th className="p-3">Ativo / ID</th>
                   <th className="p-3">Predição / Posição</th>
                   <th className="p-3">Preço Entrada</th>
@@ -153,7 +153,7 @@ export default function ActivityTable() {
                   const isUP = trade.prediction === 'UP';
 
                   return (
-                    <tr key={trade.id} className="hover:bg-slate-800/10 font-mono transition-all">
+                    <tr key={trade.id} className="hover:bg-slate-800/10 font-mono transition-all whitespace-nowrap">
                       <td className="p-3">
                         <div className="font-bold text-white">{trade.assetSymbol}</div>
                         <div className="text-[10px] text-slate-500">ID: {trade.id.split('-')[1]}</div>

@@ -31,3 +31,24 @@ export function formatKzNum(value: number | string | null | undefined): string {
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return parts.join(',');
 }
+
+/**
+ * Formats a numeric value compactly. If the value has no decimals or is a whole number, 
+ * it completely omits the decimals to save critical screen space on mobile.
+ */
+export function formatCompactKz(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '0';
+  }
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) {
+    return '0';
+  }
+  if (num % 1 === 0) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+  const parts = num.toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return parts.join(',');
+}
+

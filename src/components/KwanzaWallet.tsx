@@ -178,9 +178,14 @@ export default function KwanzaWallet() {
             </p>
 
             <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1.5">
-                Valor para Transferência (Mínimo: 1.000 Kz / Máximo: 50.000 Kz)
-              </label>
+              <div className="flex justify-between items-center mb-1.5 gap-1.5 flex-wrap sm:flex-nowrap">
+                <label htmlFor="deposit-amount" className="text-[10px] text-slate-500 uppercase tracking-wider font-bold whitespace-nowrap">
+                  Valor para Depositar
+                </label>
+                <span className="text-[9px] text-slate-500 font-mono whitespace-nowrap">
+                  Limites: 1.000 Kz - 50.000 Kz
+                </span>
+              </div>
               <input
                 id="deposit-amount"
                 type="number"
@@ -262,9 +267,14 @@ export default function KwanzaWallet() {
             </p>
 
             <div>
-              <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1.5">
-                Valor do Levantamento (Mínimo: 1.000,00 Kz / Limite Máximo Diário: 10.000,00 Kz)
-              </label>
+              <div className="flex justify-between items-center mb-1.5 gap-1.5 flex-wrap sm:flex-nowrap">
+                <label htmlFor="withdraw-amount" className="text-[10px] text-slate-500 uppercase tracking-wider font-bold whitespace-nowrap">
+                  Valor para Levantar
+                </label>
+                <span className="text-[9px] text-slate-500 font-mono whitespace-nowrap">
+                  Limites: 1.000 Kz - 10.000 Kz
+                </span>
+              </div>
               <input
                 id="withdraw-amount"
                 type="number"
