@@ -107,7 +107,9 @@
         "webhookUrl": { "type": "string" },
         "supportOpenHour": { "type": "string" },
         "supportCloseHour": { "type": "string" },
-        "supportStatusForce": { "type": "string", "enum": ["AUTO", "OPEN", "CLOSED"] }
+        "supportStatusForce": { "type": "string", "enum": ["AUTO", "OPEN", "CLOSED"] },
+        "supportAgentName": { "type": "string" },
+        "supportAgentAvatar": { "type": "string" }
       },
       "required": ["marketStatus", "minTradeAmount", "maxTradeAmount", "winPayoutPercentage"]
     },
@@ -125,6 +127,22 @@
         "timestamp": { "type": "number" }
       },
       "required": ["id", "userId", "userName", "senderId", "senderName", "text", "timestamp"]
+    },
+    "UserLog": {
+      "title": "UserLog",
+      "description": "Log of actions performed by users or administrators on the platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "role": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "userId", "userEmail", "userName", "role", "action", "details", "timestamp"]
     }
   },
   "firestore": {
@@ -151,6 +169,10 @@
     "support_messages/{messageId}": {
       "schema": "SupportMessage",
       "description": "Support chat messages exchanged between users and admins"
+    },
+    "logs/{logId}": {
+      "schema": "UserLog",
+      "description": "System audit logs recording every action performed by users and administrators"
     }
   }
 }

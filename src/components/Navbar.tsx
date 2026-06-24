@@ -209,7 +209,7 @@ export default function Navbar() {
                 <Shield size={16} />
               </button>
             )}
-            {currentUser.role === 'user' && (
+            {roleMode === 'user' && (
               <button
                 id="toggle-support-chat-btn"
                 onClick={() => window.dispatchEvent(new CustomEvent('open-support-chat'))}

@@ -276,7 +276,7 @@ function DashboardContent() {
             </button>
           )}
 
-          {currentUser.role === 'user' && (
+          {roleMode === 'user' && (
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('open-support-chat'))}
               className="p-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all flex items-center justify-center shadow-md shadow-amber-500/5"

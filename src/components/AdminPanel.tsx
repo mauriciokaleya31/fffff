@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTrading } from '../context/TradingContext';
 import { Asset, UserAccount, AssetCategory, PlatformConfig } from '../types';
 import { 
-  Users, Landmark, Settings, Sliders, Check, Ban, Coins, 
+  Users, Landmark, Settings, Sliders, Check, Ban, Coins, Edit, 
   Trash2, Plus, Volume, CheckCircle2, XCircle, AlertTriangle,
   ShieldCheck, FileText, Fingerprint, Eye, EyeOff, Search, Filter,
   ArrowUpRight, ArrowDownLeft, Clock, Percent, Activity, Sparkles,
@@ -39,9 +39,12 @@ export default function AdminPanel() {
     adminUpdateAssetPrice,
     adminDeleteAsset,
     adminConfigurePlatformSetting,
+    adminDeleteUser,
+    adminUpdateUser,
     adminApproveVerification,
     adminRejectVerification,
     onlineUsersCount,
+    logs,
     supportMessages,
     sendSupportMessage,
     adminResetSystem
@@ -54,6 +57,19 @@ export default function AdminPanel() {
   const [statsRange, setStatsRange] = useState<'week' | 'month' | 'all'>('week');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [logSearch, setLogSearch] = useState<string>('');
+  const [logActionFilter, setLogActionFilter] = useState<string>('ALL');
+
+  // User editing states
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editUserName, setEditUserName] = useState<string>('');
+  const [editUserEmail, setEditUserEmail] = useState<string>('');
+  const [editUserIp, setEditUserIp] = useState<string>('');
+  const [editUserBalance, setEditUserBalance] = useState<number>(0);
+  const [editUserDemoBalance, setEditUserDemoBalance] = useState<number>(0);
+  const [editUserVerificationStatus, setEditUserVerificationStatus] = useState<string>('NOT_SUBMITTED');
+  const [editUserWinProbability, setEditUserWinProbability] = useState<number>(60);
+  const [editUserWinProbabilityDemo, setEditUserWinProbabilityDemo] = useState<number>(60);
   
   // CMS state values
   const [cmsForm, setCmsForm] = useState<any>({});
@@ -67,6 +83,39 @@ export default function AdminPanel() {
     apiCustomJustification: ''
   });
   const [apiSaveSuccess, setApiSaveSuccess] = useState(false);
+
+  const handleStartEditUser = (user: any) => {
+    const meta = getUserSimulatedMeta(user.id);
+    setEditingUser(user);
+    setEditUserName(user.name || '');
+    setEditUserEmail(user.email || '');
+    setEditUserIp(user.ipAddress || meta.ip || '');
+    setEditUserBalance(user.balance || 0);
+    setEditUserDemoBalance(user.demoBalance || 0);
+    setEditUserVerificationStatus(user.verificationStatus || 'NOT_SUBMITTED');
+    setEditUserWinProbability(user.winProbability || 60);
+    setEditUserWinProbabilityDemo(user.winProbabilityDemo || 60);
+  };
+
+  const handleSaveUserEdit = async () => {
+    if (!editingUser) return;
+    try {
+      await adminUpdateUser(editingUser.id, {
+        name: editUserName,
+        email: editUserEmail,
+        ipAddress: editUserIp,
+        balance: editUserBalance,
+        demoBalance: editUserDemoBalance,
+        verificationStatus: editUserVerificationStatus as any,
+        isVerified: editUserVerificationStatus === 'APPROVED',
+        winProbability: editUserWinProbability as any,
+        winProbabilityDemo: editUserWinProbabilityDemo as any,
+      });
+      setEditingUser(null);
+    } catch (err) {
+      console.error("Error updating user details:", err);
+    }
+  };
 
   // Real-time connection diagnostic tester state
   const [connectionTest, setConnectionTest] = useState<{
@@ -1266,47 +1315,95 @@ export default function AdminPanel() {
                       </div>
 
                       {/* Probabilities settings panel (Ajustar lucros e perdas por probabilidade) */}
-                      <div className="w-full xl:w-1/4">
-                        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2">
-                          Manipular Probabilidade Ganhos
-                        </p>
-                        <div className="grid grid-cols-4 gap-1">
-                          {([10, 40, 60, 100] as const).map(prob => (
-                            <button
-                              key={prob}
-                              id={`prob-${user.id}-${prob}`}
-                              onClick={() => adminAdjustUserWinProbability(user.id, prob)}
-                              className={`text-[11px] font-mono py-1.5 rounded transition-all font-bold ${
-                                user.winProbability === prob
-                                  ? 'bg-red-650 text-white shadow shadow-red-950 scale-105 border border-red-500'
-                                  : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'
-                              }`}
-                            >
-                              {prob}%
-                            </button>
-                          ))}
+                      <div className="w-full xl:w-1/4 space-y-3">
+                        <div>
+                          <p className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider mb-1 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Manipular Probabilidade Real
+                          </p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {([10, 40, 60, 100] as const).map(prob => (
+                              <button
+                                key={prob}
+                                id={`prob-real-${user.id}-${prob}`}
+                                onClick={() => adminAdjustUserWinProbability(user.id, prob, false)}
+                                className={`text-[10px] font-mono py-1 rounded transition-all font-bold cursor-pointer ${
+                                  user.winProbability === prob
+                                    ? 'bg-emerald-600 text-white shadow scale-105 border border-emerald-450'
+                                    : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'
+                                }`}
+                              >
+                                {prob}%
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <p className="text-[9px] text-slate-500 mt-1.5 leading-relaxed font-sans font-medium">
-                          {user.winProbability === 10 ? '🔴 Perdas dominantes (Impossibilita alavancagem).' : 
-                           user.winProbability === 40 ? '🟡 Payout orgânico (Dificuldade média controlada).' :
-                           user.winProbability === 60 ? '🟢 Balanceado normal (Cotações de mercado reais).' :
-                           '🔥 Vitória garantida 100% de probabilidade.'}
+
+                        <div>
+                          <p className="text-[9px] uppercase font-bold text-amber-500 tracking-wider mb-1 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-550" />
+                            Manipular Probabilidade Demo
+                          </p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {([10, 40, 60, 100] as const).map(prob => (
+                              <button
+                                key={prob}
+                                id={`prob-demo-${user.id}-${prob}`}
+                                onClick={() => adminAdjustUserWinProbability(user.id, prob, true)}
+                                className={`text-[10px] font-mono py-1 rounded transition-all font-bold cursor-pointer ${
+                                  (user.winProbabilityDemo ?? 60) === prob
+                                    ? 'bg-amber-500 text-slate-950 shadow scale-105 border border-amber-400'
+                                    : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'
+                                }`}
+                              >
+                                {prob}%
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <p className="text-[8px] text-slate-500 mt-1 leading-tight font-sans font-medium">
+                          Real: {user.winProbability}% ({user.winProbability === 10 ? '🔴 Dreno' : user.winProbability === 40 ? '🟡 Médio' : user.winProbability === 60 ? '🟢 Normal' : '🔥 100% Ganho'}) | 
+                          Demo: {user.winProbabilityDemo ?? 60}% ({(user.winProbabilityDemo ?? 60) === 10 ? '🔴 Dreno' : (user.winProbabilityDemo ?? 60) === 40 ? '🟡 Médio' : (user.winProbabilityDemo ?? 60) === 60 ? '🟢 Normal' : '🔥 100% Ganho'})
                         </p>
                       </div>
 
-                      {/* Block Toggle action status */}
-                      <div className="w-full xl:w-auto self-stretch xl:self-auto flex items-center justify-end border-t xl:border-t-0 border-slate-900 pt-3.5 xl:pt-0">
+                      {/* Action buttons (Edit, Block, Delete) */}
+                      <div className="w-full xl:w-auto self-stretch xl:self-auto flex flex-row xl:flex-col gap-2 justify-end items-center border-t xl:border-t-0 border-slate-900 pt-3.5 xl:pt-0">
+                        {/* Edit Button */}
+                        <button
+                          onClick={() => handleStartEditUser(user)}
+                          className="flex-1 xl:w-full bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 text-[10px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5 font-semibold cursor-pointer"
+                        >
+                          <Edit size={12} className="text-amber-550" />
+                          Editar
+                        </button>
+
+                        {/* Block Button */}
                         <button
                           id={`toggle-block-${user.id}`}
                           onClick={() => adminToggleUserBlock(user.id)}
-                          className={`text-xs px-3.5 py-2 rounded-xl transition-all border flex items-center gap-1.5 font-semibold ${
+                          className={`flex-1 xl:w-full text-[10px] px-2.5 py-1.5 rounded-xl transition-all border flex items-center justify-center gap-1.5 font-semibold cursor-pointer ${
                             user.isBlocked
-                              ? 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-emerald-500 hover:text-white'
-                              : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-red-500 hover:text-red-500'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-600 hover:text-white'
+                              : 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-600 hover:text-white'
                           }`}
                         >
-                          <Ban size={14} />
+                          <Ban size={12} />
                           {user.isBlocked ? 'Desbloquear' : 'Bloquear'}
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => {
+                            if (confirm(`Tem a certeza de que deseja excluir permanentemente a conta de ${user.name} (${user.email})?`)) {
+                              adminDeleteUser(user.id);
+                            }
+                          }}
+                          className="flex-1 xl:w-full bg-rose-600/10 hover:bg-rose-650 text-rose-400 hover:text-slate-950 border border-rose-950 hover:border-rose-600 text-[10px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5 font-semibold cursor-pointer"
+                        >
+                          <Trash2 size={12} />
+                          Excluir
                         </button>
                       </div>
 
@@ -2544,6 +2641,156 @@ export default function AdminPanel() {
 
             </div>
 
+            {/* AUDIT LOG PANEL */}
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 space-y-6 mt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-900 pb-4">
+                <div className="text-left">
+                  <h4 className="font-display font-black text-sm text-white flex items-center gap-2 uppercase tracking-wide">
+                    <Fingerprint className="text-amber-500" size={16} />
+                    📜 Logs de Auditoria & Atividades em Tempo Real (Firebase)
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                    Histórico completo, imutável e seguro de todas as ações executadas por utilizadores e administradores na plataforma.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-800 rounded-full px-3 py-1.5 text-[10px] text-emerald-400 font-mono font-bold self-start sm:self-auto animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Firebase Audit Active
+                </div>
+              </div>
+
+              {/* SEARCH & FILTERS BAR */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                <div className="sm:col-span-8 relative text-left">
+                  <input
+                    type="text"
+                    value={logSearch}
+                    onChange={(e) => setLogSearch(e.target.value)}
+                    placeholder="Pesquisar por utilizador, email, ação ou detalhes..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 pl-9 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                  />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-4">
+                  <select
+                    value={logActionFilter}
+                    onChange={(e) => setLogActionFilter(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-300 focus:outline-none focus:border-amber-500 font-mono"
+                  >
+                    <option value="ALL">Todas as Ações</option>
+                    <option value="LOGIN">LOGIN</option>
+                    <option value="CADASTRO">CADASTRO</option>
+                    <option value="LOGOUT">LOGOUT</option>
+                    <option value="ALTERAR_CONTA">ALTERAR_CONTA</option>
+                    <option value="DEPOSITO_SOLICITADO">DEPOSITO_SOLICITADO</option>
+                    <option value="LEVANTAMENTO_SOLICITADO">LEVANTAMENTO_SOLICITADO</option>
+                    <option value="ABRIR_TRADE_SPOT">ABRIR_TRADE_SPOT</option>
+                    <option value="FECHAR_TRADE_SPOT">FECHAR_TRADE_SPOT</option>
+                    <option value="ABRIR_TRADE_BINARIO">ABRIR_TRADE_BINARIO</option>
+                    <option value="SUBMETER_VERIFICACAO">SUBMETER_VERIFICACAO</option>
+                    <option value="ATUALIZAR_PERFIL">ATUALIZAR_PERFIL</option>
+                    <option value="ADMIN_APROVAR_TRANSACAO">ADMIN_APROVAR_TRANSACAO</option>
+                    <option value="ADMIN_REJEITAR_TRANSACAO">ADMIN_REJEITAR_TRANSACAO</option>
+                    <option value="ADMIN_AJUSTAR_SALDO">ADMIN_AJUSTAR_SALDO</option>
+                    <option value="ADMIN_AJUSTAR_PROBABILIDADE">ADMIN_AJUSTAR_PROBABILIDADE</option>
+                    <option value="ADMIN_BLOQUEIO_UTILIZADOR">ADMIN_BLOQUEIO_UTILIZADOR</option>
+                    <option value="ADMIN_CRIAR_ATIVO">ADMIN_CRIAR_ATIVO</option>
+                    <option value="ADMIN_ATUALIZAR_PRECO">ADMIN_ATUALIZAR_PRECO</option>
+                    <option value="ADMIN_APAGAR_ATIVO">ADMIN_APAGAR_ATIVO</option>
+                    <option value="ADMIN_CONFIGURAR_PLATAFORMA">ADMIN_CONFIGURAR_PLATAFORMA</option>
+                    <option value="ADMIN_DISPARAR_VOLATILIDADE">ADMIN_DISPARAR_VOLATILIDADE</option>
+                    <option value="ADMIN_APROVAR_VERIFICACAO">ADMIN_APROVAR_VERIFICACAO</option>
+                    <option value="ADMIN_REJEITAR_VERIFICACAO">ADMIN_REJEITAR_VERIFICACAO</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* LOG RECORDS FEED */}
+              <div className="border border-slate-900 rounded-xl overflow-hidden bg-slate-950/40">
+                <div className="overflow-x-auto max-h-[400px] custom-scrollbar">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950 text-slate-500 font-mono text-[9px] uppercase tracking-wider border-b border-slate-900">
+                        <th className="py-3 px-4 font-bold">Data & Hora</th>
+                        <th className="py-3 px-4 font-bold">Utilizador</th>
+                        <th className="py-3 px-4 font-bold">Função</th>
+                        <th className="py-3 px-4 font-bold">Ação</th>
+                        <th className="py-3 px-4 font-bold">Detalhes do Evento</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900 text-xs text-slate-300 font-sans">
+                      {(() => {
+                        const filtered = (logs || []).filter(log => {
+                          const matchesSearch = 
+                            log.userEmail.toLowerCase().includes(logSearch.toLowerCase()) ||
+                            log.userName.toLowerCase().includes(logSearch.toLowerCase()) ||
+                            log.action.toLowerCase().includes(logSearch.toLowerCase()) ||
+                            log.details.toLowerCase().includes(logSearch.toLowerCase()) ||
+                            log.userId.toLowerCase().includes(logSearch.toLowerCase());
+                            
+                          const matchesAction = logActionFilter === 'ALL' || log.action === logActionFilter;
+                          return matchesSearch && matchesAction;
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="py-8 text-center text-slate-500 font-mono text-[10px]">
+                                Nenhum log de auditoria disponível com os filtros atuais.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filtered.map((log) => {
+                          const isAdm = log.role === 'admin';
+                          return (
+                            <tr key={log.id} className="hover:bg-slate-900/30 transition-colors">
+                              <td className="py-2.5 px-4 font-mono text-[10px] text-slate-500 whitespace-nowrap">
+                                {new Date(log.timestamp).toLocaleString('pt-AO')}
+                              </td>
+                              <td className="py-2.5 px-4">
+                                <div className="font-bold text-slate-200">{log.userName}</div>
+                                <div className="text-[10px] text-slate-500 font-mono">{log.userEmail}</div>
+                              </td>
+                              <td className="py-2.5 px-4 whitespace-nowrap">
+                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase font-mono ${
+                                  isAdm 
+                                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' 
+                                    : 'bg-slate-800 text-slate-400 border border-slate-700/50'
+                                }`}>
+                                  {log.role}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 whitespace-nowrap">
+                                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                                  log.action.startsWith('ADMIN_') 
+                                    ? 'bg-red-950/40 text-red-400 border border-red-900/35'
+                                    : log.action.includes('SOLICITADO')
+                                    ? 'bg-amber-950/40 text-amber-400 border border-amber-900/35'
+                                    : log.action.includes('TRADE')
+                                    ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/35'
+                                    : 'bg-slate-900 text-slate-300 border border-slate-800'
+                                }`}>
+                                  {log.action}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 text-[11px] font-mono text-slate-400 max-w-[320px] truncate" title={log.details}>
+                                {log.details}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -3388,6 +3635,46 @@ export default function AdminPanel() {
                 </button>
               </div>
 
+              {/* SUPPORT AGENT CUSTOMIZATION PANEL */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4 mt-4">
+                <div className="flex-1 text-left">
+                  <h4 className="font-display font-bold text-xs text-white">Personalizar Atendente de Suporte</h4>
+                  <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                    Defina o nome de exibição e a foto de perfil do agente de suporte que os utilizadores visualizarão no chat.
+                  </p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs w-full sm:w-auto">
+                    <span className="text-slate-400 font-mono">Nome:</span>
+                    <input
+                      type="text"
+                      value={platformConfig.supportAgentName ?? 'Suporte Técnico'}
+                      onChange={(e) => adminConfigurePlatformSetting({ supportAgentName: e.target.value })}
+                      className="bg-slate-950 border border-slate-800 text-white font-sans text-xs rounded px-2 py-1 w-full sm:w-[150px]"
+                      placeholder="Nome do Atendente"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs w-full sm:w-auto">
+                    <span className="text-slate-400 font-mono">Foto URL:</span>
+                    <input
+                      type="text"
+                      value={platformConfig.supportAgentAvatar ?? ''}
+                      onChange={(e) => adminConfigurePlatformSetting({ supportAgentAvatar: e.target.value })}
+                      className="bg-slate-950 border border-slate-800 text-white font-sans text-xs rounded px-2 py-1 w-full sm:w-[220px]"
+                      placeholder="https://exemplo.com/foto.jpg"
+                    />
+                  </div>
+                  
+                  {platformConfig.supportAgentAvatar && (
+                    <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-700 bg-slate-900 flex-shrink-0">
+                      <img src={platformConfig.supportAgentAvatar} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* SPLIT CHAT LAYOUT PANEL */}
               <div className="grid grid-cols-12 gap-6 pb-12">
                 {/* Conversations Sidebar (Left) */}
@@ -3529,6 +3816,146 @@ export default function AdminPanel() {
         })()}
 
       </div>
+
+      {/* USER EDIT MODAL */}
+      {editingUser && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm select-none">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl relative overflow-hidden text-left">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-display font-extrabold text-sm text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Edit size={16} className="text-amber-500" />
+                  Editar Utilizador
+                </h3>
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">ID: {editingUser.id}</p>
+              </div>
+              <button 
+                onClick={() => setEditingUser(null)} 
+                className="text-slate-400 hover:text-white bg-slate-950/40 border border-slate-800 hover:border-slate-700 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+              {/* Name & Email */}
+              <div className="grid grid-cols-2 gap-3 col-span-2">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Nome Completo</label>
+                  <input 
+                    type="text" 
+                    value={editUserName} 
+                    onChange={(e) => setEditUserName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500 font-sans"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">E-mail</label>
+                  <input 
+                    type="email" 
+                    value={editUserEmail} 
+                    onChange={(e) => setEditUserEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* IP Address & Verification Status */}
+              <div className="grid grid-cols-2 gap-3 col-span-2">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Endereço IP</label>
+                  <input 
+                    type="text" 
+                    value={editUserIp} 
+                    onChange={(e) => setEditUserIp(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Status Verificação BI</label>
+                  <select 
+                    value={editUserVerificationStatus} 
+                    onChange={(e) => setEditUserVerificationStatus(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500 font-semibold"
+                  >
+                    <option value="NOT_SUBMITTED">Não Submetido</option>
+                    <option value="PENDING">Análise Pendente</option>
+                    <option value="APPROVED">Validado (Aprovado)</option>
+                    <option value="REJECTED">Rejeitado</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Balances */}
+              <div className="grid grid-cols-2 gap-3 col-span-2">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider">Saldo Real (AOA)</label>
+                  <input 
+                    type="number" 
+                    value={editUserBalance} 
+                    onChange={(e) => setEditUserBalance(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-emerald-900/40 rounded-lg p-2 text-xs text-white outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-amber-500 tracking-wider">Saldo Demo (AOA)</label>
+                  <input 
+                    type="number" 
+                    value={editUserDemoBalance} 
+                    onChange={(e) => setEditUserDemoBalance(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-amber-900/40 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Probabilities */}
+              <div className="grid grid-cols-2 gap-3 col-span-2 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider block">Win Prob. Real</label>
+                  <select 
+                    value={editUserWinProbability} 
+                    onChange={(e) => setEditUserWinProbability(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-emerald-500 font-mono font-bold"
+                  >
+                    <option value={10}>10% (Perda Dominante)</option>
+                    <option value={40}>40% (Mercado Difícil)</option>
+                    <option value={60}>60% (Mercado Balanceado)</option>
+                    <option value={100}>100% (Ganho Garantido)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-bold text-amber-500 tracking-wider block">Win Prob. Demo</label>
+                  <select 
+                    value={editUserWinProbabilityDemo} 
+                    onChange={(e) => setEditUserWinProbabilityDemo(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500 font-mono font-bold"
+                  >
+                    <option value={10}>10% (Perda Dominante)</option>
+                    <option value={40}>40% (Mercado Difícil)</option>
+                    <option value={60}>60% (Mercado Balanceado)</option>
+                    <option value={100}>100% (Ganho Garantido)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 border-t border-slate-800 pt-3 select-none">
+              <button
+                onClick={handleSaveUserEdit}
+                className="flex-1 bg-amber-500 hover:bg-amber-450 text-slate-950 font-display font-black text-xs py-2.5 px-4 rounded-xl transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2"
+              >
+                Guardar Alterações
+              </button>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="flex-1 bg-slate-950 hover:bg-slate-850 text-slate-400 font-display font-bold text-xs py-2.5 px-4 rounded-xl transition-all border border-slate-800 cursor-pointer flex items-center justify-center"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
 

@@ -4,26 +4,24 @@ import { MessageCircle, X, Send, Clock, Lock, Shield, User, Volume2, VolumeX } f
 import { playSound } from '../lib/audio';
 
 export default function SupportChat() {
-  const { currentUser, supportMessages, sendSupportMessage, platformConfig } = useTrading();
+  const { currentUser, roleMode, supportMessages, sendSupportMessage, platformConfig } = useTrading();
   const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  if (!currentUser || currentUser.role === 'admin') return null;
-
   // Filter messages that belong strictly to this user's support thread
-  const userMessages = supportMessages.filter(m => m.userId === currentUser.id);
+  const userMessages = currentUser ? supportMessages.filter(m => m.userId === currentUser.id) : [];
 
   // Check if chat is open based on schedule configuration
   const checkIfOpen = () => {
-    const forceStatus = platformConfig.supportStatusForce ?? 'AUTO';
+    const forceStatus = platformConfig?.supportStatusForce ?? 'AUTO';
     if (forceStatus === 'OPEN') return true;
     if (forceStatus === 'CLOSED') return false;
 
     try {
-      const openStr = platformConfig.supportOpenHour ?? '08:00';
-      const closeStr = platformConfig.supportCloseHour ?? '18:00';
+      const openStr = platformConfig?.supportOpenHour ?? '08:00';
+      const closeStr = platformConfig?.supportCloseHour ?? '18:00';
       
       const [openH, openM] = openStr.split(':').map(Number);
       const [closeH, closeM] = closeStr.split(':').map(Number);
@@ -60,6 +58,7 @@ export default function SupportChat() {
   // Track unread messages sent by admin when chat box is closed
   const prevLengthRef = useRef(userMessages.length);
   useEffect(() => {
+    if (!currentUser) return;
     if (!isOpen && userMessages.length > prevLengthRef.current) {
       const lastMsg = userMessages[userMessages.length - 1];
       if (lastMsg && lastMsg.senderId !== currentUser.id) {
@@ -67,7 +66,7 @@ export default function SupportChat() {
       }
     }
     prevLengthRef.current = userMessages.length;
-  }, [userMessages, isOpen, currentUser.id]);
+  }, [userMessages, isOpen, currentUser?.id]);
 
   // Listen to open-support-chat event to open the chat window from external buttons
   useEffect(() => {
@@ -82,7 +81,7 @@ export default function SupportChat() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !isServiceOpen) return;
+    if (!inputMessage.trim()) return;
 
     const textToSend = inputMessage;
     setInputMessage('');
@@ -92,6 +91,9 @@ export default function SupportChat() {
       chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 50);
   };
+
+  const showChat = currentUser && (currentUser.role !== 'admin' || roleMode === 'user');
+  if (!showChat) return null;
 
   return (
     <div className="fixed bottom-[72px] sm:bottom-6 right-4 sm:right-6 z-50 select-none">
@@ -125,8 +127,12 @@ export default function SupportChat() {
           <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-500">
-                  <Shield size={18} />
+                <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-500 overflow-hidden">
+                  {platformConfig?.supportAgentAvatar ? (
+                    <img src={platformConfig.supportAgentAvatar} alt="Support Agent Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <Shield size={18} />
+                  )}
                 </div>
                 <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-950 ${
                   isServiceOpen ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'
@@ -134,7 +140,9 @@ export default function SupportChat() {
               </div>
               
               <div>
-                <h4 className="font-display font-bold text-xs text-white">Suporte Técnico</h4>
+                <h4 className="font-display font-bold text-xs text-white">
+                  {platformConfig?.supportAgentName || 'Suporte Técnico'}
+                </h4>
                 <p className="text-[10px] text-slate-400 font-mono">
                   {isServiceOpen ? 'Atendimento Online' : 'Suporte Indisponível'}
                 </p>
@@ -179,7 +187,7 @@ export default function SupportChat() {
                     }`}>
                       <div className="flex items-center gap-1 mb-0.5 justify-between">
                         <span className={`text-[9px] font-bold ${isMe ? 'text-slate-900' : 'text-amber-400'}`}>
-                          {isMe ? 'Você' : 'Suporte'}
+                          {isMe ? 'Você' : (platformConfig?.supportAgentName || 'Suporte')}
                         </span>
                         <span className="text-[8px] opacity-60 font-mono scale-90">
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -195,35 +203,34 @@ export default function SupportChat() {
           </div>
 
           {/* Chat Message Input form */}
-          <div className="p-3 bg-slate-950 border-t border-slate-800">
-            {isServiceOpen ? (
-              <form onSubmit={handleSendMessage} className="flex gap-2">
-                <input
-                  id="chat-input-text"
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder="Escreva a sua mensagem..."
-                  className="flex-1 bg-slate-900 text-slate-200 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all placeholder-slate-600 font-sans"
-                  maxLength={500}
-                />
-                <button
-                  id="send-chat-message-btn"
-                  type="submit"
-                  disabled={!inputMessage.trim()}
-                  className="w-9 h-9 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 rounded-xl flex items-center justify-center transition-colors shadow-lg active:scale-95 duration-200"
-                >
-                  <Send size={14} />
-                </button>
-              </form>
-            ) : (
-              <div className="flex items-center gap-2 p-3 bg-red-950/20 border border-red-500/20 rounded-xl text-center">
-                <Lock size={13} className="text-red-400 shrink-0" />
-                <p className="text-[10px] text-red-400 text-left font-sans">
-                  Suporte fora de serviço. Horário de funcionamento: das {platformConfig.supportOpenHour ?? '08:00'} às {platformConfig.supportCloseHour ?? '18:00'}.
+          <div className="p-3 bg-slate-950 border-t border-slate-800 space-y-2">
+            {!isServiceOpen && (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <Clock size={11} className="text-amber-400 shrink-0" />
+                <p className="text-[9px] text-amber-400 font-sans leading-tight">
+                  Estamos fora de expediente ({platformConfig.supportOpenHour ?? '08:00'} - {platformConfig.supportCloseHour ?? '18:00'}). Deixe a sua mensagem, responderemos o mais breve possível.
                 </p>
               </div>
             )}
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input
+                id="chat-input-text"
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Escreva a sua mensagem..."
+                className="flex-1 bg-slate-900 text-slate-200 border border-slate-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all placeholder-slate-600 font-sans"
+                maxLength={500}
+              />
+              <button
+                id="send-chat-message-btn"
+                type="submit"
+                disabled={!inputMessage.trim()}
+                className="w-9 h-9 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 rounded-xl flex items-center justify-center transition-colors shadow-lg active:scale-95 duration-200"
+              >
+                <Send size={14} />
+              </button>
+            </form>
           </div>
         </div>
       )}

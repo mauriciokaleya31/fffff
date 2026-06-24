@@ -221,47 +221,68 @@ export default function UserProfile() {
       
       {/* Top Breadcrumb & Status */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-800/80">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <button 
             onClick={() => setActiveView('trade')}
-            className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-all text-slate-400 hover:text-white"
+            className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-all text-slate-400 hover:text-white shrink-0"
             title="Voltar ao Trade"
           >
             <ArrowLeft size={16} />
           </button>
-          <div>
-            <h1 className="text-xl font-display font-medium text-white">Configurações de Perfil</h1>
-            <p className="text-xs text-slate-400">Verifique a sua identidade jurídica e configure os seus dados em Angola</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-display font-medium text-white flex items-center gap-2 truncate">
+              Configurações de Perfil
+            </h1>
+            <p className="text-xs text-slate-400 truncate">Verifique a sua identidade jurídica e configure os seus dados em Angola</p>
           </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-support-chat'))}
+            className="sm:hidden p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all shrink-0"
+            title="Abrir Chat de Suporte"
+          >
+            <MessageCircle size={16} />
+          </button>
         </div>
 
-        {/* Dynamic Status Badge */}
-        <div className="flex items-center gap-2 bg-slate-950 px-3.5 py-1.8 rounded-xl border border-slate-800">
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-mono font-medium">Estado:</p>
-          {currentUser.verificationStatus === 'APPROVED' && (
-            <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-1 rounded-full font-semibold border border-emerald-500/20">
-              <ShieldCheck size={14} />
-              Verificado (Compliance OK)
-            </span>
-          )}
-          {currentUser.verificationStatus === 'PENDING' && (
-            <span className="flex items-center gap-1 bg-amber-500/10 text-amber-400 text-xs px-2.5 py-1 rounded-full font-semibold border border-amber-500/20 animate-pulse">
-              <Clock size={14} />
-              Em Análise de Compliance
-            </span>
-          )}
-          {currentUser.verificationStatus === 'REJECTED' && (
-            <span className="flex items-center gap-1 bg-red-500/10 text-red-500 text-xs px-2.5 py-1 rounded-full font-semibold border border-red-500/20">
-              <AlertTriangle size={14} />
-              Rejeitado / Pendente Correção
-            </span>
-          )}
-          {currentUser.verificationStatus === 'NOT_SUBMITTED' && (
-            <span className="flex items-center gap-1 bg-slate-800 text-slate-400 text-xs px-2.5 py-1 rounded-full font-semibold border border-slate-700">
-              <User size={14} />
-              Não Verificado
-            </span>
-          )}
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:justify-end">
+          {/* Support Chat Fast Trigger */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-support-chat'))}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all text-xs font-semibold cursor-pointer shadow-sm"
+            title="Abrir Chat de Suporte Técnico"
+          >
+            <MessageCircle size={14} className="text-amber-500" />
+            <span>Suporte Técnico</span>
+          </button>
+
+          {/* Dynamic Status Badge */}
+          <div className="flex items-center gap-2 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800">
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-mono font-medium">Estado:</p>
+            {currentUser.verificationStatus === 'APPROVED' && (
+              <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-1 rounded-full font-semibold border border-emerald-500/20">
+                <ShieldCheck size={14} />
+                Verificado (Compliance OK)
+              </span>
+            )}
+            {currentUser.verificationStatus === 'PENDING' && (
+              <span className="flex items-center gap-1 bg-amber-500/10 text-amber-400 text-xs px-2.5 py-1 rounded-full font-semibold border border-amber-500/20 animate-pulse">
+                <Clock size={14} />
+                Em Análise de Compliance
+              </span>
+            )}
+            {currentUser.verificationStatus === 'REJECTED' && (
+              <span className="flex items-center gap-1 bg-red-500/10 text-red-500 text-xs px-2.5 py-1 rounded-full font-semibold border border-red-500/20">
+                <AlertTriangle size={14} />
+                Rejeitado / Pendente Correção
+              </span>
+            )}
+            {currentUser.verificationStatus === 'NOT_SUBMITTED' && (
+              <span className="flex items-center gap-1 bg-slate-800 text-slate-400 text-xs px-2.5 py-1 rounded-full font-semibold border border-slate-700">
+                <User size={14} />
+                Não Verificado
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

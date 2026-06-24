@@ -42,6 +42,7 @@ export interface Trade {
   prediction?: 'UP' | 'DOWN'; // For BINARY
   duration?: number; // BINARY duration in seconds (e.g., 30, 60, 120)
   timeLeft?: number; // BINARY timer countdown
+  isDemo?: boolean; // If it was a demo trade
 }
 
 export type TransactionType = 'DEPOSIT' | 'WITHDRAW';
@@ -85,6 +86,7 @@ export interface UserAccount {
   role: 'admin' | 'user';
   isDemo: boolean;
   winProbability: 10 | 40 | 60 | 100; // Admin configured probability of winning trades
+  winProbabilityDemo?: 10 | 40 | 60 | 100; // Admin configured probability of winning trades for DEMO account
   isBlocked: boolean;
   createdAt: string;
   lossMultiplier: number; // e.g. 1.0, allows fine-tuning return multipliers from admin panel
@@ -163,6 +165,8 @@ export interface PlatformConfig {
   supportOpenHour?: string; // e.g. "08:00"
   supportCloseHour?: string; // e.g. "18:00"
   supportStatusForce?: 'AUTO' | 'OPEN' | 'CLOSED'; // AUTO follows hours, OPEN is always open, CLOSED is always closed
+  supportAgentName?: string; // Custom support agent/bot display name
+  supportAgentAvatar?: string; // Custom support avatar image URL
 }
 
 export interface SupportMessage {
@@ -172,5 +176,16 @@ export interface SupportMessage {
   senderId: string;
   senderName: string;
   text: string;
+  timestamp: number;
+}
+
+export interface UserLog {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  role: string;
+  action: string;
+  details: string;
   timestamp: number;
 }
